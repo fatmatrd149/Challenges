@@ -1,0 +1,94 @@
+/* Merged and adapted styles.css for admin-back-office (Challenges & Rewards) */
+/* Based on your group's back-office CSS: clean, minimal, professional */
+
+body {
+  background-color: #f8fafc; /* Light gray background */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+}
+
+.navbar-brand {
+  font-weight: 700; /* Bold branding */
+}
+
+.card {
+  border-radius: .75rem; /* Rounded cards */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05); /* Subtle shadow */
+  background: #fff;
+}
+
+.table td, .table th {
+  vertical-align: middle; /* Better alignment */
+}
+
+.placeholder-text {
+  color: #6c757d; /* Muted gray */
+  font-style: italic;
+}
+
+.stat {
+  background: #fff;
+  border-radius: .75rem;
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+
+.btn-pill {
+  border-radius: 9999px; /* Fully rounded buttons */
+}
+
+.badge-soft {
+  background: #eef2ff; /* Light blue */
+  color: #4f46e5;
+  border-radius: .5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Badge styles for types (soft, not marker-like) */
+.badge-quiz {
+  background: #eef2ff;
+  color: #4f46e5;
+  border-radius: .5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.badge-course {
+  background: #f0fdf4; /* Light green */
+  color: #16a34a;
+  border-radius: .5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.badge-time {
+  background: #fefce8; /* Light yellow */
+  color: #ca8a04;
+  border-radius: .5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.badge-social {
+  background: #fef2f2; /* Light red */
+  color: #dc2626;
+  border-radius: .5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Table hover (subtle) */
+.table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Form elements */
+.form-control, .form-select {
+  border-radius: .5rem;
+  border: 1px solid #d1d5db;
+}
+
+.btn {
+  border-radius: .5rem;
+}
+
+/* Progress bar (if used) */
+.progress-bar {
+  height: 20px;
+}
