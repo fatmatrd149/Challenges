@@ -384,7 +384,7 @@ class ChallengesController {
         $id = (int)($_GET['id'] ?? 0);
         if ($id <= 0) { 
             $_SESSION['error_message'] = 'Invalid challenge ID';
-            header('Location: ../../Views/front-office/Challenges.php');
+            header('Location: ../Views/front-office/Challenges.php');
             exit;
         }
         
@@ -392,15 +392,15 @@ class ChallengesController {
             $result = Challenges::complete($pdo, $id, $studentID);
             if ($result === false) {
                 $_SESSION['error_message'] = 'Cannot complete challenge. You may have already completed it or not met prerequisites.';
-                header('Location: ../../Views/front-office/Challenges.php');
+                header('Location: ../Views/front-office/Challenges.php');
                 exit;
             }
             $_SESSION['success_message'] = 'Challenge completed successfully! Points awarded: ' . $result;
-            header('Location: ../../Views/front-office/Challenges.php');
+            header('Location: ../Views/front-office/Challenges.php');
             exit;
         } catch (Exception $e) {
             $_SESSION['error_message'] = 'Error completing challenge: ' . $e->getMessage();
-            header('Location: ../../Views/front-office/Challenges.php');
+            header('Location: ../Views/front-office/Challenges.php');
             exit;
         }
     }
@@ -539,11 +539,11 @@ class ChallengesController {
         $role = $_SESSION['userRole'] ?? 'admin';
         
         if ($role == 'admin') {
-            $url = '../../Views/admin-back-office/Challenges.php';
+            $url = '../Views/admin-back-office/Challenges.php';
         } else if ($role == 'teacher') {
-            $url = '../../Views/teacher-front-office/Challenges.php';
+            $url = '../Views/teacher-front-office/Challenges.php';
         } else {
-            $url = '../../Views/front-office/Challenges.php';
+            $url = '../Views/front-office/Challenges.php';
         }
         
         if (!empty($query)) {

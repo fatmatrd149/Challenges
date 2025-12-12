@@ -7,9 +7,7 @@ require_once __DIR__ . '/../../Models/Points.php';
 $studentID = $_SESSION['userID'] ?? 3; 
 $userRole = $_SESSION['role'] ?? 'student';
 
-
 error_log("Rewards View: Session userID=" . ($_SESSION['userID'] ?? 'NOT SET') . ", Using studentID=$studentID");
-
 
 $stmt = $pdo->prepare("SELECT points FROM users WHERE id = ?");
 $stmt->execute([$studentID]);
@@ -18,7 +16,6 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 error_log("Rewards View: User points query result - " . print_r($user, true));
 
 $balance = $user ? max(0, (int)$user['points']) : 100; 
-
 
 error_log("Rewards View: Final balance = $balance");
 
@@ -356,6 +353,61 @@ foreach ($allRewards as $reward) {
         .status-rejected {
             background: #fee2e2;
             color: #991b1b;
+        }
+        
+        /* Category Carousel Styles */
+        .category-carousel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding: 10px 0;
+            scrollbar-width: thin;
+        }
+        .category-btn {
+            padding: 8px 16px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            font-weight: 600;
+            color: #4b5563;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+        .category-btn:hover {
+            background: #e5e7eb;
+        }
+        .category-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .carousel-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .carousel-btn {
+            padding: 8px 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .carousel-btn:hover {
+            background: #1d4ed8;
+        }
+        .carousel-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .category-section {
+            display: none;
         }
     </style>
 </head>
@@ -696,136 +748,165 @@ foreach ($allRewards as $reward) {
         <p class="text-muted">Browse all rewards organized by category</p>
     </div>
 
-    <?php foreach ($rewardsByCategory as $category => $rewards): ?>
-        <div class="category-header">
-            <div>
-                <?php 
-                $icon = 'fa-gift';
-                if($category == 'Badge') $icon = 'fa-medal';
-                if($category == 'Bonus Points') $icon = 'fa-coins';
-                if($category == 'Certificate') $icon = 'fa-certificate';
-                if($category == 'Perk') $icon = 'fa-star';
-                if($category == 'Discount') $icon = 'fa-tag';
-                ?>
-                <i class="fas <?= $icon ?> category-icon"></i>
-                <h4 class="d-inline"><?= $category ?></h4>
-            </div>
-            <span class="badge bg-light text-dark fs-6"><?= count($rewards) ?> items</span>
-        </div>
+    <!-- Category Carousel Navigation -->
+    <div class="category-carousel" id="categoryCarousel">
+        <?php 
+        $categories = array_keys($rewardsByCategory);
+        foreach ($categories as $index => $category): 
+        ?>
+            <button class="category-btn <?= $index === 0 ? 'active' : '' ?>" 
+                    onclick="showCategory('<?= $category ?>', this)">
+                <?= $category ?>
+            </button>
+        <?php endforeach; ?>
+    </div>
 
-        <div class="row g-4 mb-5">
-            <?php foreach ($rewards as $r): 
-                $rewardCost = (int)$r['pointsCost'];
-                $rewardAvailability = (int)$r['availability'];
-                $rewardStatus = $r['status'];
-                $rewardMinTier = $r['min_tier'];
-                
-                // Check if student can afford
-                $canAfford = $balance >= $rewardCost;
-                
-                // Check if needs approval (missing 10 or fewer points)
-                $needsApproval = !$canAfford && ($rewardCost - $balance) <= 10;
-                
-                // Check availability
-                $isAvailable = $rewardAvailability > 0;
-                
-                // Check status
-                $isActive = $rewardStatus == 'Active';
-                
-                // Check tier requirement
-                $hasTier = true;
-                if ($rewardMinTier && $currentTier) {
-                    $tierOrder = ['Bronze' => 1, 'Silver' => 2, 'Gold' => 3, 'Platinum' => 4];
-                    $currentTierOrder = $tierOrder[$currentTier['name']] ?? 0;
-                    $requiredTierOrder = $tierOrder[$rewardMinTier] ?? 0;
-                    $hasTier = $currentTierOrder >= $requiredTierOrder;
-                }
-                
-                // Can redeem if ALL conditions are met
-                $canRedeem = $canAfford && $isAvailable && $isActive && $hasTier;
-                
-                // Calculate needed points
-                $neededPoints = max(0, $rewardCost - $balance);
-                ?>
-                <div class="col-lg-6 col-xl-4">
-                    <div class="reward-card card h-100">
-                        <div class="card-body p-4">
-                            <h5 class="card-title fw-bold mb-2" style="color: #2563eb;">
-                                <i class="fas fa-star me-2"></i>
-                                <?= htmlspecialchars($r['title']) ?>
-                            </h5>
-                            <p class="card-text mb-3 text-muted"><?= htmlspecialchars($r['description']) ?></p>
-                            
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span class="points-badge">
-                                    <?= $rewardCost ?> pts
-                                </span>
-                                <?php if($rewardMinTier): ?>
-                                    <span class="badge bg-info text-white">
-                                        <?= $rewardMinTier ?>+ Tier
+    <!-- Carousel Navigation -->
+    <div class="carousel-nav">
+        <button class="carousel-btn" onclick="prevCategory()" id="prevBtn">
+            <i class="fas fa-chevron-left me-2"></i>Previous
+        </button>
+        <button class="carousel-btn" onclick="nextCategory()" id="nextBtn">
+            Next <i class="fas fa-chevron-right ms-2"></i>
+        </button>
+    </div>
+
+    <?php 
+    foreach ($rewardsByCategory as $category => $rewards): 
+    ?>
+        <div class="category-section" id="category-<?= $category ?>" 
+             style="<?= array_key_first($rewardsByCategory) === $category ? 'display: block;' : 'display: none;' ?>">
+            
+            <div class="category-header">
+                <div>
+                    <?php 
+                    $icon = 'fa-gift';
+                    if($category == 'Badge') $icon = 'fa-medal';
+                    if($category == 'Bonus Points') $icon = 'fa-coins';
+                    if($category == 'Certificate') $icon = 'fa-certificate';
+                    if($category == 'Perk') $icon = 'fa-star';
+                    if($category == 'Discount') $icon = 'fa-tag';
+                    ?>
+                    <i class="fas <?= $icon ?> category-icon"></i>
+                    <h4 class="d-inline"><?= $category ?></h4>
+                </div>
+                <span class="badge bg-light text-dark fs-6"><?= count($rewards) ?> items</span>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <?php foreach ($rewards as $r): 
+                    $rewardCost = (int)$r['pointsCost'];
+                    $rewardAvailability = (int)$r['availability'];
+                    $rewardStatus = $r['status'];
+                    $rewardMinTier = $r['min_tier'];
+                    
+                    // Check if student can afford
+                    $canAfford = $balance >= $rewardCost;
+                    
+                    // Check if needs approval (missing 10 or fewer points)
+                    $needsApproval = !$canAfford && ($rewardCost - $balance) <= 10;
+                    
+                    // Check availability
+                    $isAvailable = $rewardAvailability > 0;
+                    
+                    // Check status
+                    $isActive = $rewardStatus == 'Active';
+                    
+                    // Check tier requirement
+                    $hasTier = true;
+                    if ($rewardMinTier && $currentTier) {
+                        $tierOrder = ['Bronze' => 1, 'Silver' => 2, 'Gold' => 3, 'Platinum' => 4];
+                        $currentTierOrder = $tierOrder[$currentTier['name']] ?? 0;
+                        $requiredTierOrder = $tierOrder[$rewardMinTier] ?? 0;
+                        $hasTier = $currentTierOrder >= $requiredTierOrder;
+                    }
+                    
+                    // Can redeem if ALL conditions are met
+                    $canRedeem = $canAfford && $isAvailable && $isActive && $hasTier;
+                    
+                    // Calculate needed points
+                    $neededPoints = max(0, $rewardCost - $balance);
+                    ?>
+                    <div class="col-lg-6 col-xl-4">
+                        <div class="reward-card card h-100">
+                            <div class="card-body p-4">
+                                <h5 class="card-title fw-bold mb-2" style="color: #2563eb;">
+                                    <i class="fas fa-star me-2"></i>
+                                    <?= htmlspecialchars($r['title']) ?>
+                                </h5>
+                                <p class="card-text mb-3 text-muted"><?= htmlspecialchars($r['description']) ?></p>
+                                
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="points-badge">
+                                        <?= $rewardCost ?> pts
                                     </span>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <?php if(!$isActive): ?>
-                                    <span class="badge-status badge-inactive">Inactive</span>
-                                <?php elseif(!$isAvailable): ?>
-                                    <span class="badge-status badge-inactive">Out of Stock</span>
-                                <?php elseif($canRedeem): ?>
-                                    <span class="badge-status badge-active">Available</span>
-                                <?php else: ?>
-                                    <?php if(!$hasTier): ?>
-                                        <span class="badge-status badge-inactive">Need <?= $rewardMinTier ?> Tier</span>
-                                    <?php elseif($needsApproval): ?>
-                                        <span class="badge-status badge-inactive">Request approval</span>
-                                    <?php elseif(!$canAfford): ?>
-                                        <span class="badge-status badge-inactive">Need <?= $neededPoints ?> more points</span>
-                                    <?php else: ?>
-                                        <span class="badge-status badge-inactive">Cannot redeem</span>
+                                    <?php if($rewardMinTier): ?>
+                                        <span class="badge bg-info text-white">
+                                            <?= $rewardMinTier ?>+ Tier
+                                        </span>
                                     <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <?php if($canRedeem): ?>
-                                <form action="../../Controllers/RewardsController.php?action=redeem&id=<?= $r['id'] ?>" method="POST" onsubmit="return confirm('Redeem \"<?= htmlspecialchars($r['title']) ?>\" for <?= $rewardCost ?> points?');">
-                                    <button type="submit" class="btn redeem-btn w-100">
-                                        <i class="fas fa-gift me-2"></i>
-                                        Redeem (<?= $rewardCost ?> pts)
-                                    </button>
-                                </form>
-                            <?php elseif($needsApproval): ?>
-                                <form action="../../Controllers/RewardsController.php?action=request_approval&id=<?= $r['id'] ?>" method="POST" onsubmit="return confirm('Request teacher approval for \"<?= htmlspecialchars($r['title']) ?>\"? You need <?= $neededPoints ?> more points.');">
-                                    <input type="hidden" name="message" value="Need <?= $neededPoints ?> more points to redeem <?= htmlspecialchars($r['title']) ?>">
-                                    <button type="submit" class="btn request-btn w-100">
-                                        <i class="fas fa-hand-paper me-2"></i>
-                                        Request Approval (Need <?= $neededPoints ?> pts)
-                                    </button>
-                                </form>
-                            <?php else: ?>
-                                <button class="btn btn-disabled w-100" disabled>
+                                </div>
+                                
+                                <div class="mb-3">
                                     <?php if(!$isActive): ?>
-                                        <i class="fas fa-times me-2"></i>
-                                        Inactive Reward
+                                        <span class="badge-status badge-inactive">Inactive</span>
                                     <?php elseif(!$isAvailable): ?>
-                                        <i class="fas fa-times me-2"></i>
-                                        Out of Stock
-                                    <?php elseif(!$hasTier): ?>
-                                        <i class="fas fa-lock me-2"></i>
-                                        Requires <?= $rewardMinTier ?> Tier
-                                    <?php elseif(!$canAfford): ?>
-                                        <i class="fas fa-lock me-2"></i>
-                                        Need <?= $neededPoints ?> more points
+                                        <span class="badge-status badge-inactive">Out of Stock</span>
+                                    <?php elseif($canRedeem): ?>
+                                        <span class="badge-status badge-active">Available</span>
                                     <?php else: ?>
-                                        <i class="fas fa-lock me-2"></i>
-                                        Cannot Redeem
+                                        <?php if(!$hasTier): ?>
+                                            <span class="badge-status badge-inactive">Need <?= $rewardMinTier ?> Tier</span>
+                                        <?php elseif($needsApproval): ?>
+                                            <span class="badge-status badge-inactive">Request approval</span>
+                                        <?php elseif(!$canAfford): ?>
+                                            <span class="badge-status badge-inactive">Need <?= $neededPoints ?> more points</span>
+                                        <?php else: ?>
+                                            <span class="badge-status badge-inactive">Cannot redeem</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
-                                </button>
-                            <?php endif; ?>
+                                </div>
+                                
+                                <?php if($canRedeem): ?>
+                                    <form action="../../Controllers/RewardsController.php?action=redeem&id=<?= $r['id'] ?>" method="POST" onsubmit="return confirm('Redeem \"<?= htmlspecialchars($r['title']) ?>\" for <?= $rewardCost ?> points?');">
+                                        <button type="submit" class="btn redeem-btn w-100">
+                                            <i class="fas fa-gift me-2"></i>
+                                            Redeem (<?= $rewardCost ?> pts)
+                                        </button>
+                                    </form>
+                                <?php elseif($needsApproval): ?>
+                                    <form action="../../Controllers/RewardsController.php?action=request_approval&id=<?= $r['id'] ?>" method="POST" onsubmit="return confirm('Request teacher approval for \"<?= htmlspecialchars($r['title']) ?>\"? You need <?= $neededPoints ?> more points.');">
+                                        <input type="hidden" name="message" value="Need <?= $neededPoints ?> more points to redeem <?= htmlspecialchars($r['title']) ?>">
+                                        <button type="submit" class="btn request-btn w-100">
+                                            <i class="fas fa-hand-paper me-2"></i>
+                                            Request Approval (Need <?= $neededPoints ?> pts)
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <button class="btn btn-disabled w-100" disabled>
+                                        <?php if(!$isActive): ?>
+                                            <i class="fas fa-times me-2"></i>
+                                            Inactive Reward
+                                        <?php elseif(!$isAvailable): ?>
+                                            <i class="fas fa-times me-2"></i>
+                                            Out of Stock
+                                        <?php elseif(!$hasTier): ?>
+                                            <i class="fas fa-lock me-2"></i>
+                                            Requires <?= $rewardMinTier ?> Tier
+                                        <?php elseif(!$canAfford): ?>
+                                            <i class="fas fa-lock me-2"></i>
+                                            Need <?= $neededPoints ?> more points
+                                        <?php else: ?>
+                                            <i class="fas fa-lock me-2"></i>
+                                            Cannot Redeem
+                                        <?php endif; ?>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
-                </div>
-            <?php endforeach; ?>
+                <?php endforeach; ?>
+            </div>
         </div>
     <?php endforeach; ?>
 </main>
@@ -835,6 +916,63 @@ foreach ($allRewards as $reward) {
 setTimeout(function() {
     location.reload();
 }, 30000);
+
+// Category Carousel
+let currentCategoryIndex = 0;
+const categories = <?= json_encode(array_keys($rewardsByCategory)) ?>;
+const categorySections = document.querySelectorAll('.category-section');
+
+function showCategory(category, button) {
+    // Hide all category sections
+    categorySections.forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show selected category
+    document.getElementById('category-' + category).style.display = 'block';
+    
+    // Update active button
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    button.classList.add('active');
+    
+    // Update current index
+    currentCategoryIndex = categories.indexOf(category);
+    updateCarouselButtons();
+}
+
+function nextCategory() {
+    if (currentCategoryIndex < categories.length - 1) {
+        currentCategoryIndex++;
+        const category = categories[currentCategoryIndex];
+        const button = document.querySelectorAll('.category-btn')[currentCategoryIndex];
+        showCategory(category, button);
+        
+        // Scroll carousel to show active button
+        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+}
+
+function prevCategory() {
+    if (currentCategoryIndex > 0) {
+        currentCategoryIndex--;
+        const category = categories[currentCategoryIndex];
+        const button = document.querySelectorAll('.category-btn')[currentCategoryIndex];
+        showCategory(category, button);
+        
+        // Scroll carousel to show active button
+        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+}
+
+function updateCarouselButtons() {
+    document.getElementById('prevBtn').disabled = currentCategoryIndex === 0;
+    document.getElementById('nextBtn').disabled = currentCategoryIndex === categories.length - 1;
+}
+
+// Initialize
+updateCarouselButtons();
 </script>
 
 </body>

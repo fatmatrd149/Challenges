@@ -459,5 +459,5 @@ class Challenges {
         $stmt->execute([$studentID, $studentID, $category]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-}
+ }
 ?>

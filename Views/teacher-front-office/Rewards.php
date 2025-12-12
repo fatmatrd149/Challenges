@@ -7,10 +7,10 @@ require_once __DIR__ . '/../../Models/Points.php';
 $teacherID = $_SESSION['userID'] ?? 2;
 $rewards = Rewards::getAll($pdo);  
 
-$pendingRequests = Rewards::getPendingRequests($pdo, $teacherID);
+$pendingRequests = Rewards::getPendingRequests($pdo);
 $redemptionStats = Rewards::getRedemptionStats($pdo, date('Y-m-01'), date('Y-m-t'));
 $popularRewards = Rewards::getPopularRewards($pdo, 5);
-$lowStockRewards = Rewards::getLowStockRewards($pdo, 10);
+$lowStockRewards = Rewards::getLowStockRewards($pdo, 5); // FIXED: Changed from 10 to 5 to match admin
 
 $stmt = $pdo->prepare("
     SELECT COUNT(*) as total_actions,
@@ -269,6 +269,17 @@ label {
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 600;
+}
+/* Add validation styles */
+.required-field::after {
+    content: " *";
+    color: #dc2626;
+}
+.error-message {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 4px;
+    display: none;
 }
 </style>
 </head>
@@ -642,29 +653,33 @@ label {
         <form id="rewardFormData" method="POST" action="../../Controllers/RewardsController.php?<?= $editReward ? 'action=update&id=' . $editReward['id'] : 'action=create' ?>">
             
             <div class="mb-3">
-                <label for="title" class="form-label">Reward Title</label>
+                <label for="title" class="form-label required-field">Reward Title</label>
                 <input type="text" id="title" name="title" class="form-control" value="<?= $editReward ? htmlspecialchars($editReward['title']) : '' ?>" />
+                <div class="error-message" id="titleError"></div>
             </div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="pointsCost" class="form-label">Points Cost</label>
+                    <label for="pointsCost" class="form-label required-field">Points Cost</label>
                     <input type="text" id="pointsCost" name="pointsCost" class="form-control" value="<?= $editReward ? $editReward['pointsCost'] : '' ?>" />
+                    <div class="error-message" id="pointsError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="availability" class="form-label">Availability</label>
+                    <label for="availability" class="form-label required-field">Availability</label>
                     <input type="text" id="availability" name="availability" class="form-control" value="<?= $editReward ? $editReward['availability'] : '' ?>" />
+                    <div class="error-message" id="availabilityError"></div>
                 </div>
             </div>
             
             <div class="mb-3">
-                <label for="description" class="form-label">Description</label>
+                <label for="description" class="form-label required-field">Description</label>
                 <textarea id="description" name="description" class="form-control" rows="3"><?= $editReward ? htmlspecialchars($editReward['description']) : '' ?></textarea>
+                <div class="error-message" id="descriptionError"></div>
             </div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="category" class="form-label">Category</label>
+                    <label for="category" class="form-label required-field">Category</label>
                     <select id="category" name="category" class="form-control">
                         <option value="">Select Category</option>
                         <option value="Badge" <?= ($editReward && $editReward['category'] == 'Badge') ? 'selected' : '' ?>>Badge</option>
@@ -674,6 +689,7 @@ label {
                         <option value="Discount" <?= ($editReward && $editReward['category'] == 'Discount') ? 'selected' : '' ?>>Discount</option>
                         <option value="Special" <?= ($editReward && $editReward['category'] == 'Special') ? 'selected' : '' ?>>Special</option>
                     </select>
+                    <div class="error-message" id="categoryError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="type" class="form-label">Type (optional)</label>
@@ -683,12 +699,13 @@ label {
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="status" class="form-label">Status</label>
+                    <label for="status" class="form-label required-field">Status</label>
                     <select id="status" name="status" class="form-control">
                         <option value="">Select Status</option>
                         <option value="Active" <?= ($editReward && $editReward['status'] == 'Active') ? 'selected' : '' ?>>Active</option>
                         <option value="Inactive" <?= ($editReward && $editReward['status'] == 'Inactive') ? 'selected' : '' ?>>Inactive</option>
                     </select>
+                    <div class="error-message" id="statusError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="min_tier" class="form-label">Minimum Tier (optional)</label>
@@ -713,15 +730,21 @@ label {
 </div>
 
 <script>
-// Validation without HTML5
+// Validation with custom error messages
 document.getElementById('rewardFormData').addEventListener('submit', function(e) {
     let isValid = true;
-    let errorMessage = '';
+    
+    // Clear previous errors
+    document.querySelectorAll('.error-message').forEach(el => {
+        el.textContent = '';
+        el.style.display = 'none';
+    });
     
     // Validate title
     const title = document.getElementById('title').value.trim();
     if (title.length < 3) {
-        errorMessage += 'Title must be at least 3 characters. ';
+        document.getElementById('titleError').textContent = 'Title must be at least 3 characters';
+        document.getElementById('titleError').style.display = 'block';
         isValid = false;
     }
     
@@ -729,11 +752,12 @@ document.getElementById('rewardFormData').addEventListener('submit', function(e)
     const pointsCost = document.getElementById('pointsCost').value;
     const pointsNum = parseInt(pointsCost);
     if (isNaN(pointsNum) || pointsNum < 1) {
-        errorMessage += 'Points cost must be at least 1. ';
+        document.getElementById('pointsError').textContent = 'Points cost must be at least 1';
+        document.getElementById('pointsError').style.display = 'block';
         isValid = false;
-    }
-    if (pointsNum > 1000) {
-        errorMessage += 'Points cost cannot exceed 1000. ';
+    } else if (pointsNum > 1000) {
+        document.getElementById('pointsError').textContent = 'Points cost cannot exceed 1000';
+        document.getElementById('pointsError').style.display = 'block';
         isValid = false;
     }
     
@@ -741,38 +765,41 @@ document.getElementById('rewardFormData').addEventListener('submit', function(e)
     const availability = document.getElementById('availability').value;
     const availNum = parseInt(availability);
     if (isNaN(availNum) || availNum < 0) {
-        errorMessage += 'Availability cannot be negative. ';
+        document.getElementById('availabilityError').textContent = 'Availability cannot be negative';
+        document.getElementById('availabilityError').style.display = 'block';
         isValid = false;
-    }
-    if (availNum > 10000) {
-        errorMessage += 'Availability cannot exceed 10000. ';
+    } else if (availNum > 10000) {
+        document.getElementById('availabilityError').textContent = 'Availability cannot exceed 10000';
+        document.getElementById('availabilityError').style.display = 'block';
         isValid = false;
     }
     
     // Validate description
     const description = document.getElementById('description').value.trim();
     if (description.length < 3) {
-        errorMessage += 'Description must be at least 3 characters. ';
+        document.getElementById('descriptionError').textContent = 'Description must be at least 3 characters';
+        document.getElementById('descriptionError').style.display = 'block';
         isValid = false;
     }
     
     // Validate category
     const category = document.getElementById('category').value;
     if (!category) {
-        errorMessage += 'Please select a category. ';
+        document.getElementById('categoryError').textContent = 'Please select a category';
+        document.getElementById('categoryError').style.display = 'block';
         isValid = false;
     }
     
     // Validate status
     const status = document.getElementById('status').value;
     if (!status) {
-        errorMessage += 'Please select a status. ';
+        document.getElementById('statusError').textContent = 'Please select a status';
+        document.getElementById('statusError').style.display = 'block';
         isValid = false;
     }
     
     if (!isValid) {
         e.preventDefault();
-        alert('Please fix the following errors:\n' + errorMessage);
         return false;
     }
 });

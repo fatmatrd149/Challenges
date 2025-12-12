@@ -8,7 +8,6 @@ $rewards = Rewards::getAll($pdo);
 $allTiers = RewardTiers::getAllTiers($pdo);
 $allBundles = Rewards::getAllBundles($pdo);
 
-
 $redemptionStats = Rewards::getRedemptionStats($pdo, date('Y-m-01'), date('Y-m-t'));
 $popularRewards = Rewards::getPopularRewards($pdo, 10);
 $lowStockRewards = Rewards::getLowStockRewards($pdo, 5);
@@ -16,11 +15,9 @@ $pendingRequests = Rewards::getPendingRequests($pdo);
 
 $tierDistribution = RewardTiers::getTierDistribution($pdo);
 
-
 $stmt = $pdo->prepare("SELECT SUM(points) as total_points FROM users WHERE role = 'student'");
 $stmt->execute();
 $totalPoints = $stmt->fetch(PDO::FETCH_ASSOC)['total_points'] ?? 0;
-
 
 $stmt = $pdo->prepare("
     SELECT COUNT(*) as total_redemptions, 
@@ -31,7 +28,6 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute();
 $monthlyStats = $stmt->fetch(PDO::FETCH_ASSOC);
-
 
 $editReward = null;
 if(isset($_GET['edit_id'])) {
@@ -347,6 +343,17 @@ label {
     color: #2563eb;
     border-bottom: 3px solid #2563eb;
     background: #f0f9ff;
+}
+/* Add these styles for validation */
+.required-field::after {
+    content: " *";
+    color: #dc2626;
+}
+.error-message {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 4px;
+    display: none;
 }
 </style>
 </head>
@@ -901,7 +908,7 @@ label {
         </h3>
         
         <?php if($editBundle || $showBundleForm): ?>
-        <!-- Bundle Form -->
+        <!-- Bundle Form with validation messages -->
         <form id="bundleForm" method="POST" action="../../Controllers/RewardsController.php">
             <?php if($editBundle): ?>
                 <input type="hidden" name="action" value="update_bundle">
@@ -911,26 +918,30 @@ label {
             <?php endif; ?>
             
             <div class="mb-3">
-                <label for="bundle_name" class="form-label">Bundle Name</label>
+                <label for="bundle_name" class="form-label required-field">Bundle Name</label>
                 <input type="text" id="bundle_name" name="name" class="form-control" 
-                       value="<?= $editBundle ? htmlspecialchars($editBundle['name']) : '' ?>" required />
+                       value="<?= $editBundle ? htmlspecialchars($editBundle['name']) : '' ?>" />
+                <div class="error-message" id="bundleNameError"></div>
             </div>
             
             <div class="mb-3">
-                <label for="bundle_description" class="form-label">Description</label>
+                <label for="bundle_description" class="form-label required-field">Description</label>
                 <textarea id="bundle_description" name="description" class="form-control" rows="3"><?= $editBundle ? htmlspecialchars($editBundle['description']) : '' ?></textarea>
+                <div class="error-message" id="bundleDescriptionError"></div>
             </div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="total_cost" class="form-label">Total Points Cost</label>
+                    <label for="total_cost" class="form-label required-field">Total Points Cost</label>
                     <input type="text" id="total_cost" name="total_cost" class="form-control" 
-                           value="<?= $editBundle ? $editBundle['total_cost'] : '' ?>" required />
+                           value="<?= $editBundle ? $editBundle['total_cost'] : '' ?>" />
+                    <div class="error-message" id="totalCostError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="discount" class="form-label">Discount Percentage</label>
                     <input type="text" id="discount" name="discount_percentage" class="form-control" 
                            value="<?= $editBundle ? $editBundle['discount_percentage'] : '0' ?>" />
+                    <div class="error-message" id="discountError"></div>
                 </div>
             </div>
             
@@ -939,21 +950,24 @@ label {
                     <label for="limited_quantity" class="form-label">Limited Quantity (optional)</label>
                     <input type="text" id="limited_quantity" name="limited_quantity" class="form-control" 
                            value="<?= $editBundle ? $editBundle['limited_quantity'] : '' ?>" />
+                    <div class="error-message" id="quantityError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="status" class="form-label">Status</label>
-                    <select id="status" name="status" class="form-control" required>
+                    <label for="status" class="form-label required-field">Status</label>
+                    <select id="status" name="status" class="form-control">
                         <option value="">Select Status</option>
                         <option value="active" <?= ($editBundle && $editBundle['status'] == 'active') ? 'selected' : '' ?>>Active</option>
                         <option value="upcoming" <?= ($editBundle && $editBundle['status'] == 'upcoming') ? 'selected' : '' ?>>Upcoming</option>
                         <option value="expired" <?= ($editBundle && $editBundle['status'] == 'expired') ? 'selected' : '' ?>>Expired</option>
                         <option value="inactive" <?= ($editBundle && $editBundle['status'] == 'inactive') ? 'selected' : '' ?>>Inactive</option>
                     </select>
+                    <div class="error-message" id="statusError"></div>
                 </div>
             </div>
             
             <div class="mb-3">
-                <label class="form-label">Select Rewards for Bundle</label>
+                <label class="form-label required-field">Select Rewards for Bundle</label>
+                <div id="rewardsSelectionError" class="error-message"></div>
                 <div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 10px;">
                     <?php 
                     $selectedRewards = [];
@@ -965,7 +979,7 @@ label {
                     ?>
                     <?php foreach($rewards as $reward): ?>
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="reward_ids[]" 
+                            <input class="form-check-input bundle-reward-checkbox" type="checkbox" name="reward_ids[]" 
                                    value="<?= $reward['id'] ?>" 
                                    id="reward_<?= $reward['id'] ?>"
                                    <?= in_array($reward['id'], $selectedRewards) ? 'checked' : '' ?>>
@@ -996,29 +1010,33 @@ label {
             <?php endif; ?>
             
             <div class="mb-3">
-                <label for="title" class="form-label">Reward Title</label>
+                <label for="title" class="form-label required-field">Reward Title</label>
                 <input type="text" id="title" name="title" class="form-control" value="<?= $editReward ? htmlspecialchars($editReward['title']) : '' ?>" />
+                <div class="error-message" id="titleError"></div>
             </div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="pointsCost" class="form-label">Points Cost</label>
+                    <label for="pointsCost" class="form-label required-field">Points Cost</label>
                     <input type="text" id="pointsCost" name="pointsCost" class="form-control" value="<?= $editReward ? $editReward['pointsCost'] : '' ?>" />
+                    <div class="error-message" id="pointsError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label for="availability" class="form-label">Availability</label>
+                    <label for="availability" class="form-label required-field">Availability</label>
                     <input type="text" id="availability" name="availability" class="form-control" value="<?= $editReward ? $editReward['availability'] : '' ?>" />
+                    <div class="error-message" id="availabilityError"></div>
                 </div>
             </div>
             
             <div class="mb-3">
-                <label for="description" class="form-label">Description</label>
+                <label for="description" class="form-label required-field">Description</label>
                 <textarea id="description" name="description" class="form-control" rows="3"><?= $editReward ? htmlspecialchars($editReward['description']) : '' ?></textarea>
+                <div class="error-message" id="descriptionError"></div>
             </div>
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="category" class="form-label">Category</label>
+                    <label for="category" class="form-label required-field">Category</label>
                     <select id="category" name="category" class="form-control">
                         <option value="">Select Category</option>
                         <option value="Badge" <?= ($editReward && $editReward['category'] == 'Badge') ? 'selected' : '' ?>>Badge</option>
@@ -1028,6 +1046,7 @@ label {
                         <option value="Discount" <?= ($editReward && $editReward['category'] == 'Discount') ? 'selected' : '' ?>>Discount</option>
                         <option value="Special" <?= ($editReward && $editReward['category'] == 'Special') ? 'selected' : '' ?>>Special</option>
                     </select>
+                    <div class="error-message" id="categoryError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="type" class="form-label">Type (optional)</label>
@@ -1037,12 +1056,13 @@ label {
             
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="status" class="form-label">Status</label>
+                    <label for="status" class="form-label required-field">Status</label>
                     <select id="status" name="status" class="form-control">
                         <option value="">Select Status</option>
                         <option value="Active" <?= ($editReward && $editReward['status'] == 'Active') ? 'selected' : '' ?>>Active</option>
                         <option value="Inactive" <?= ($editReward && $editReward['status'] == 'Inactive') ? 'selected' : '' ?>>Inactive</option>
                     </select>
+                    <div class="error-message" id="statusError"></div>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label for="min_tier" class="form-label">Minimum Tier (optional)</label>
@@ -1115,12 +1135,18 @@ function deleteBundle(bundleId, bundleName) {
 if(document.getElementById('rewardFormData')) {
     document.getElementById('rewardFormData').addEventListener('submit', function(e) {
         let isValid = true;
-        let errorMessage = '';
+        
+        // Clear previous errors
+        document.querySelectorAll('#rewardFormData .error-message').forEach(el => {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
         
         // Validate title
         const title = document.getElementById('title').value.trim();
         if (title.length < 3) {
-            errorMessage += 'Title must be at least 3 characters. ';
+            document.getElementById('titleError').textContent = 'Title must be at least 3 characters';
+            document.getElementById('titleError').style.display = 'block';
             isValid = false;
         }
         
@@ -1128,11 +1154,12 @@ if(document.getElementById('rewardFormData')) {
         const pointsCost = document.getElementById('pointsCost').value;
         const pointsNum = parseInt(pointsCost);
         if (isNaN(pointsNum) || pointsNum < 1) {
-            errorMessage += 'Points cost must be at least 1. ';
+            document.getElementById('pointsError').textContent = 'Points cost must be at least 1';
+            document.getElementById('pointsError').style.display = 'block';
             isValid = false;
-        }
-        if (pointsNum > 1000) {
-            errorMessage += 'Points cost cannot exceed 1000. ';
+        } else if (pointsNum > 1000) {
+            document.getElementById('pointsError').textContent = 'Points cost cannot exceed 1000';
+            document.getElementById('pointsError').style.display = 'block';
             isValid = false;
         }
         
@@ -1140,38 +1167,41 @@ if(document.getElementById('rewardFormData')) {
         const availability = document.getElementById('availability').value;
         const availNum = parseInt(availability);
         if (isNaN(availNum) || availNum < 0) {
-            errorMessage += 'Availability cannot be negative. ';
+            document.getElementById('availabilityError').textContent = 'Availability cannot be negative';
+            document.getElementById('availabilityError').style.display = 'block';
             isValid = false;
-        }
-        if (availNum > 10000) {
-            errorMessage += 'Availability cannot exceed 10000. ';
+        } else if (availNum > 10000) {
+            document.getElementById('availabilityError').textContent = 'Availability cannot exceed 10000';
+            document.getElementById('availabilityError').style.display = 'block';
             isValid = false;
         }
         
         // Validate description
         const description = document.getElementById('description').value.trim();
         if (description.length < 3) {
-            errorMessage += 'Description must be at least 3 characters. ';
+            document.getElementById('descriptionError').textContent = 'Description must be at least 3 characters';
+            document.getElementById('descriptionError').style.display = 'block';
             isValid = false;
         }
         
         // Validate category
         const category = document.getElementById('category').value;
         if (!category) {
-            errorMessage += 'Please select a category. ';
+            document.getElementById('categoryError').textContent = 'Please select a category';
+            document.getElementById('categoryError').style.display = 'block';
             isValid = false;
         }
         
         // Validate status
         const status = document.getElementById('status').value;
         if (!status) {
-            errorMessage += 'Please select a status. ';
+            document.getElementById('statusError').textContent = 'Please select a status';
+            document.getElementById('statusError').style.display = 'block';
             isValid = false;
         }
         
         if (!isValid) {
             e.preventDefault();
-            alert('Please fix the following errors:\n' + errorMessage);
             return false;
         }
     });
@@ -1181,12 +1211,26 @@ if(document.getElementById('rewardFormData')) {
 if(document.getElementById('bundleForm')) {
     document.getElementById('bundleForm').addEventListener('submit', function(e) {
         let isValid = true;
-        let errorMessage = '';
+        
+        // Clear previous errors
+        document.querySelectorAll('#bundleForm .error-message').forEach(el => {
+            el.textContent = '';
+            el.style.display = 'none';
+        });
         
         // Validate bundle name
         const bundleName = document.getElementById('bundle_name').value.trim();
         if (bundleName.length < 3) {
-            errorMessage += 'Bundle name must be at least 3 characters. ';
+            document.getElementById('bundleNameError').textContent = 'Bundle name must be at least 3 characters';
+            document.getElementById('bundleNameError').style.display = 'block';
+            isValid = false;
+        }
+        
+        // Validate description
+        const bundleDescription = document.getElementById('bundle_description').value.trim();
+        if (bundleDescription.length < 3) {
+            document.getElementById('bundleDescriptionError').textContent = 'Description must be at least 3 characters';
+            document.getElementById('bundleDescriptionError').style.display = 'block';
             isValid = false;
         }
         
@@ -1194,27 +1238,55 @@ if(document.getElementById('bundleForm')) {
         const totalCost = document.getElementById('total_cost').value;
         const costNum = parseInt(totalCost);
         if (isNaN(costNum) || costNum < 1) {
-            errorMessage += 'Total cost must be at least 1 point. ';
+            document.getElementById('totalCostError').textContent = 'Total cost must be at least 1 point';
+            document.getElementById('totalCostError').style.display = 'block';
+            isValid = false;
+        } else if (costNum > 10000) {
+            document.getElementById('totalCostError').textContent = 'Total cost cannot exceed 10000 points';
+            document.getElementById('totalCostError').style.display = 'block';
             isValid = false;
         }
         
-        // Check if at least one reward is selected
-        const rewardCheckboxes = document.querySelectorAll('input[name="reward_ids[]"]:checked');
-        if (rewardCheckboxes.length === 0) {
-            errorMessage += 'Please select at least one reward for the bundle. ';
-            isValid = false;
+        // Validate discount
+        const discount = document.getElementById('discount').value;
+        if (discount) {
+            const discountNum = parseInt(discount);
+            if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+                document.getElementById('discountError').textContent = 'Discount must be between 0 and 100';
+                document.getElementById('discountError').style.display = 'block';
+                isValid = false;
+            }
+        }
+        
+        // Validate limited quantity
+        const limitedQuantity = document.getElementById('limited_quantity').value;
+        if (limitedQuantity) {
+            const quantityNum = parseInt(limitedQuantity);
+            if (isNaN(quantityNum) || quantityNum < 1) {
+                document.getElementById('quantityError').textContent = 'Limited quantity must be at least 1';
+                document.getElementById('quantityError').style.display = 'block';
+                isValid = false;
+            }
         }
         
         // Validate status
         const status = document.getElementById('status').value;
         if (!status) {
-            errorMessage += 'Please select a status. ';
+            document.getElementById('statusError').textContent = 'Please select a status';
+            document.getElementById('statusError').style.display = 'block';
+            isValid = false;
+        }
+        
+        // Check if at least one reward is selected
+        const rewardCheckboxes = document.querySelectorAll('.bundle-reward-checkbox:checked');
+        if (rewardCheckboxes.length === 0) {
+            document.getElementById('rewardsSelectionError').textContent = 'Please select at least one reward for the bundle';
+            document.getElementById('rewardsSelectionError').style.display = 'block';
             isValid = false;
         }
         
         if (!isValid) {
             e.preventDefault();
-            alert('Please fix the following errors:\n' + errorMessage);
             return false;
         }
     });

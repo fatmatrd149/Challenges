@@ -319,4 +319,4 @@ INSERT INTO bundle_items (bundle_id, reward_id, quantity) VALUES
 INSERT INTO bundle_items (bundle_id, reward_id, quantity) VALUES 
 (3, 5, 1),  -- Master Scholar Badge
 (3, 10, 1), -- Honor Roll Certificate
-(3, 13, 1); -- Early Exam Access
+(3, 13, 1); -- Early Exam Access 

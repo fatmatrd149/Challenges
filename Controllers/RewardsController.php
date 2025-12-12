@@ -8,14 +8,10 @@ class RewardsController {
     public static function handle($pdo) {
         $action = $_GET['action'] ?? '';
         
-        
         error_log("RewardsController Session userID: " . ($_SESSION['userID'] ?? 'NOT SET'));
         
-       
         $studentID = $_SESSION['userID'] ?? 3; 
-        
         $userRole = $_SESSION['role'] ?? 'student';
-        
         
         switch ($userRole) {
             case 'teacher':
@@ -30,15 +26,12 @@ class RewardsController {
 
         switch ($action) {
             case 'create': 
-                // FIX: Pass current page reference
                 self::createReward($pdo, $redirectPage); 
                 break;
             case 'update': 
-                // FIX: Pass current page reference
                 self::updateReward($pdo, $redirectPage); 
                 break;
             case 'delete': 
-                // FIX: Pass current page reference
                 self::deleteReward($pdo, $redirectPage); 
                 break;
             case 'redeem': 
@@ -48,16 +41,15 @@ class RewardsController {
                 self::requestApproval($pdo, $studentID); 
                 break;
             case 'teacher_approve': 
-                self::teacherApprove($pdo, $_SESSION['userID']); 
+                self::teacherApprove($pdo, $_SESSION['userID'], $redirectPage); 
                 break;
             case 'teacher_reject': 
-                self::teacherReject($pdo, $_SESSION['userID']); 
+                self::teacherReject($pdo, $_SESSION['userID'], $redirectPage); 
                 break;
             case 'redeem_bundle': 
                 self::redeemBundle($pdo, $studentID); 
                 break;
             default: 
-                // FIX: Stay on current page
                 header("Location: $redirectPage?error=Invalid action"); 
                 exit;
         }
@@ -74,7 +66,7 @@ class RewardsController {
             $status = $_POST['status'] ?? '';
             $min_tier = $_POST['min_tier'] ?? '';
 
-            // Custom validation - REMOVED HTML5, KEEP SERVER-SIDE ONLY
+            // Custom validation
             $errors = [];
             if(strlen($title) < 3){
                 $errors[] = "Title must be at least 3 characters";
@@ -111,7 +103,6 @@ class RewardsController {
             
             if ($ok) {
                 $_SESSION['success'] = 'Reward created successfully';
-                // FIX: Stay on current page (teacher or admin)
                 header("Location: $redirectPage");
                 exit;
             } else {
@@ -142,7 +133,7 @@ class RewardsController {
             $status = $_POST['status'] ?? '';
             $min_tier = $_POST['min_tier'] ?? '';
 
-            // Custom validation - REMOVED HTML5, KEEP SERVER-SIDE ONLY
+            // Custom validation
             $errors = [];
             if(strlen($title) < 3){
                 $errors[] = "Title must be at least 3 characters";
@@ -179,7 +170,6 @@ class RewardsController {
             
             if ($ok) {
                 $_SESSION['success'] = 'Reward updated successfully';
-                // FIX: Stay on current page (teacher or admin)
                 header("Location: $redirectPage");
                 exit;
             } else {
@@ -204,7 +194,6 @@ class RewardsController {
             $ok = Rewards::delete($pdo, $id);
             if ($ok) {
                 $_SESSION['success'] = 'Reward deleted successfully';
-                // FIX: Stay on current page (teacher or admin)
                 header("Location: $redirectPage");
                 exit;
             } else {
@@ -311,13 +300,13 @@ class RewardsController {
         exit;
     }
     
-    private static function teacherApprove($pdo, $teacherID) {
+    private static function teacherApprove($pdo, $teacherID, $redirectPage) {
         $requestID = (int)($_GET['request_id'] ?? 0);
         $notes = $_POST['notes'] ?? 'Approved by teacher';
         
         if ($requestID <= 0) {
             $_SESSION['error'] = 'Invalid request ID';
-            header("Location: ../Views/teacher-front-office/Rewards.php");
+            header("Location: $redirectPage");
             exit;
         }
         
@@ -335,7 +324,7 @@ class RewardsController {
             
             if (!$request) {
                 $_SESSION['error'] = 'Request not found or already processed';
-                header("Location: ../Views/teacher-front-office/Rewards.php");
+                header("Location: $redirectPage");
                 exit;
             }
             
@@ -370,17 +359,17 @@ class RewardsController {
             $_SESSION['error'] = 'Error approving request: ' . $e->getMessage();
         }
         
-        header("Location: ../Views/teacher-front-office/Rewards.php");
+        header("Location: $redirectPage");
         exit;
     }
     
-    private static function teacherReject($pdo, $teacherID) {
+    private static function teacherReject($pdo, $teacherID, $redirectPage) {
         $requestID = (int)($_GET['request_id'] ?? 0);
         $notes = $_POST['notes'] ?? 'Rejected by teacher';
         
         if ($requestID <= 0) {
             $_SESSION['error'] = 'Invalid request ID';
-            header("Location: ../Views/teacher-front-office/Rewards.php");
+            header("Location: $redirectPage");
             exit;
         }
         
@@ -409,7 +398,7 @@ class RewardsController {
             $_SESSION['error'] = 'Error rejecting request: ' . $e->getMessage();
         }
         
-        header("Location: ../Views/teacher-front-office/Rewards.php");
+        header("Location: $redirectPage");
         exit;
     }
     
