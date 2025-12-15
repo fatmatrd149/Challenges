@@ -159,8 +159,9 @@ foreach ($allRewards as $reward) {
             transition: width 0.5s ease; 
         }
         .tier-badge {
-            font-size: 3rem;
+            font-size: 4rem;
             margin-bottom: 15px;
+            line-height: 1;
         }
         
         .redemptions-section {
@@ -182,12 +183,12 @@ foreach ($allRewards as $reward) {
         }
         
         .recommendations-section {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background: #3490dc;
             border-radius: 12px;
             padding: 25px;
             margin-bottom: 30px;
             color: white;
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 8px 25px rgba(52, 144, 220, 0.3);
         }
         
         .redemption-item, .request-item {
@@ -284,7 +285,7 @@ foreach ($allRewards as $reward) {
         }
         
         .category-header {
-            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            background: #2563eb;
             color: white;
             padding: 15px 25px;
             border-radius: 12px;
@@ -303,7 +304,7 @@ foreach ($allRewards as $reward) {
         }
         
         .bundle-header {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            background: #059669;
         }
         
         .no-achievements {
@@ -319,7 +320,7 @@ foreach ($allRewards as $reward) {
         }
         
         .earn-points-box {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            background: #f59e0b;
             color: white;
             padding: 20px;
             border-radius: 12px;
@@ -355,59 +356,88 @@ foreach ($allRewards as $reward) {
             color: #991b1b;
         }
         
-        /* Category Carousel Styles */
-        .category-carousel {
+        /* Category Navigation Styles */
+        .category-navigation {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-bottom: 20px;
-            overflow-x: auto;
-            padding: 10px 0;
-            scrollbar-width: thin;
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 12px;
         }
         .category-btn {
-            padding: 8px 16px;
-            background: #f3f4f6;
-            border: 2px solid #e5e7eb;
+            padding: 10px 20px;
+            background: #e5e7eb;
+            border: none;
             border-radius: 20px;
             font-weight: 600;
             color: #4b5563;
             cursor: pointer;
-            white-space: nowrap;
             transition: all 0.3s ease;
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         .category-btn:hover {
-            background: #e5e7eb;
+            background: #d1d5db;
+            transform: translateY(-2px);
         }
         .category-btn.active {
             background: #2563eb;
             color: white;
-            border-color: #2563eb;
-        }
-        .carousel-nav {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .carousel-btn {
-            padding: 8px 16px;
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .carousel-btn:hover {
-            background: #1d4ed8;
-        }
-        .carousel-btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
         .category-section {
             display: none;
+        }
+        .category-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Tier Colors */
+        .tier-badge-bronze {
+            background: #cd7f32;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #8b4513;
+        }
+        .tier-badge-silver {
+            background: #c0c0c0;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #808080;
+        }
+        .tier-badge-gold {
+            background: #ffd700;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #b8860b;
+        }
+        .tier-badge-platinum {
+            background: #e5e4e2;
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #999;
         }
     </style>
 </head>
@@ -443,7 +473,7 @@ foreach ($allRewards as $reward) {
 <main class="container py-4">
     <!-- Points Display -->
     <div class="points-display">
-        <i class="fas fa-coins me-2"></i>
+        <i class="fas fa-star me-2"></i>
         <span id="balance"><?= $balance ?></span> Points Available
         <div class="balance-info">Last updated: <?= date('H:i:s') ?></div>
         
@@ -668,7 +698,6 @@ foreach ($allRewards as $reward) {
         <h3 class="section-title">
             <i class="fas fa-box me-2"></i>Special Reward Bundles
         </h3>
-        <p class="text-muted">Get more value with our curated bundles</p>
     </div>
 
     <div class="row g-4 mb-5">
@@ -740,16 +769,15 @@ foreach ($allRewards as $reward) {
     </div>
     <?php endif; ?>
 
-    <!-- All Available Rewards Organized by Category -->
+    <!-- All Available Rewards -->
     <div class="mb-4">
         <h3 class="section-title">
             <i class="fas fa-gift me-2"></i>All Available Rewards
         </h3>
-        <p class="text-muted">Browse all rewards organized by category</p>
     </div>
 
-    <!-- Category Carousel Navigation -->
-    <div class="category-carousel" id="categoryCarousel">
+    <!-- Category Navigation -->
+    <div class="category-navigation" id="categoryNav">
         <?php 
         $categories = array_keys($rewardsByCategory);
         foreach ($categories as $index => $category): 
@@ -761,21 +789,11 @@ foreach ($allRewards as $reward) {
         <?php endforeach; ?>
     </div>
 
-    <!-- Carousel Navigation -->
-    <div class="carousel-nav">
-        <button class="carousel-btn" onclick="prevCategory()" id="prevBtn">
-            <i class="fas fa-chevron-left me-2"></i>Previous
-        </button>
-        <button class="carousel-btn" onclick="nextCategory()" id="nextBtn">
-            Next <i class="fas fa-chevron-right ms-2"></i>
-        </button>
-    </div>
-
     <?php 
     foreach ($rewardsByCategory as $category => $rewards): 
     ?>
-        <div class="category-section" id="category-<?= $category ?>" 
-             style="<?= array_key_first($rewardsByCategory) === $category ? 'display: block;' : 'display: none;' ?>">
+        <div class="category-section <?= array_key_first($rewardsByCategory) === $category ? 'active' : '' ?>" 
+             id="category-<?= $category ?>">
             
             <div class="category-header">
                 <div>
@@ -841,8 +859,11 @@ foreach ($allRewards as $reward) {
                                         <?= $rewardCost ?> pts
                                     </span>
                                     <?php if($rewardMinTier): ?>
-                                        <span class="badge bg-info text-white">
-                                            <?= $rewardMinTier ?>+ Tier
+                                        <?php 
+                                        $tierClass = 'tier-badge-' . strtolower($rewardMinTier);
+                                        ?>
+                                        <span class="<?= $tierClass ?>">
+                                            <?= $rewardMinTier ?>+
                                         </span>
                                     <?php endif; ?>
                                 </div>
@@ -917,62 +938,34 @@ setTimeout(function() {
     location.reload();
 }, 30000);
 
-// Category Carousel
-let currentCategoryIndex = 0;
-const categories = <?= json_encode(array_keys($rewardsByCategory)) ?>;
+// Category Navigation
 const categorySections = document.querySelectorAll('.category-section');
 
 function showCategory(category, button) {
     // Hide all category sections
     categorySections.forEach(section => {
-        section.style.display = 'none';
+        section.classList.remove('active');
     });
     
     // Show selected category
-    document.getElementById('category-' + category).style.display = 'block';
+    document.getElementById('category-' + category).classList.add('active');
     
     // Update active button
     document.querySelectorAll('.category-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     button.classList.add('active');
-    
-    // Update current index
-    currentCategoryIndex = categories.indexOf(category);
-    updateCarouselButtons();
 }
 
-function nextCategory() {
-    if (currentCategoryIndex < categories.length - 1) {
-        currentCategoryIndex++;
-        const category = categories[currentCategoryIndex];
-        const button = document.querySelectorAll('.category-btn')[currentCategoryIndex];
-        showCategory(category, button);
-        
-        // Scroll carousel to show active button
-        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+// Initialize first category as active
+document.addEventListener('DOMContentLoaded', function() {
+    // First category is already active by default
+    // Ensure the first category button is active
+    const firstButton = document.querySelector('.category-btn');
+    if (firstButton) {
+        firstButton.classList.add('active');
     }
-}
-
-function prevCategory() {
-    if (currentCategoryIndex > 0) {
-        currentCategoryIndex--;
-        const category = categories[currentCategoryIndex];
-        const button = document.querySelectorAll('.category-btn')[currentCategoryIndex];
-        showCategory(category, button);
-        
-        // Scroll carousel to show active button
-        button.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-}
-
-function updateCarouselButtons() {
-    document.getElementById('prevBtn').disabled = currentCategoryIndex === 0;
-    document.getElementById('nextBtn').disabled = currentCategoryIndex === categories.length - 1;
-}
-
-// Initialize
-updateCarouselButtons();
+});
 </script>
 
 </body>
