@@ -11,6 +11,7 @@ $rewards = Rewards::getAll($pdo);
 $timeLimitedChallenges = Challenges::getTimeLimitedChallenges($pdo);
 $recurringChallenges = Challenges::getRecurringChallenges($pdo);
 
+// Organize challenges by level
 $challengeTree = [];
 foreach ($challenges as $challenge) {
     $level = (int)($challenge['tree_level'] ?? 0);
@@ -20,6 +21,16 @@ foreach ($challenges as $challenge) {
     $challengeTree[$level][] = $challenge;
 }
 ksort($challengeTree);
+
+// Get current level from URL or default to first level
+$currentLevel = isset($_GET['level']) ? (int)$_GET['level'] : (count($challengeTree) > 0 ? min(array_keys($challengeTree)) : 0);
+$levels = array_keys($challengeTree);
+$currentLevelIndex = array_search($currentLevel, $levels);
+$hasPrevLevel = $currentLevelIndex > 0;
+$hasNextLevel = $currentLevelIndex < count($levels) - 1;
+
+// Get challenges for current level
+$currentLevelChallenges = $challengeTree[$currentLevel] ?? [];
 
 $success_message = $_SESSION['success_message'] ?? '';
 $error_message = $_SESSION['error_message'] ?? '';
@@ -373,6 +384,87 @@ label {
     cursor: pointer;
     font-size: 0.9rem;
 }
+.level-navigation {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 30px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.level-indicator {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2563eb;
+}
+.level-indicator .badge {
+    background: #2563eb;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 1rem;
+}
+.level-btn {
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.level-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+.level-btn:disabled {
+    background: #e5e7eb;
+    color: #6b7280;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+.level-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+.level-overview {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+.level-pill {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+.level-pill.active {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+.level-pill:not(.active) {
+    background: #f3f4f6;
+    color: #6b7280;
+    border-color: #f3f4f6;
+}
+.level-pill:not(.active):hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
 </style>
 </head>
 <body>
@@ -528,85 +620,146 @@ label {
         </div>
     </div>
 
+    <!-- Level Overview -->
+    <?php if (!empty($challengeTree)): ?>
+    <div class="level-overview">
+        <?php foreach ($levels as $level): ?>
+            <a href="?level=<?= $level ?>" 
+               class="level-pill <?= $level == $currentLevel ? 'active' : '' ?>">
+                Level <?= $level ?>
+                <span class="badge bg-white text-dark ms-1">
+                    <?= count($challengeTree[$level] ?? []) ?>
+                </span>
+            </a>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <div class="tree-view">
         <h3 class="mb-4">
             <i class="fas fa-sitemap me-2" style="color: #059669;"></i>
-            Challenge Progression Tree
+            Challenge Progression Tree - Level <?= $currentLevel ?>
         </h3>
         
-        <?php if (!empty($challengeTree)): ?>
-            <?php foreach ($challengeTree as $level => $challenges): ?>
-                <div class="tree-path">
-                    <div class="path-header">
-                        <h4 class="mb-0">
-                            <i class="fas fa-layer-group me-2"></i>
-                            Level <?= $level ?> Challenges
-                        </h4>
-                    </div>
-                    
-                    <div class="row g-3">
-                        <?php foreach ($challenges as $c): ?>
-                            <div class="col-lg-6">
-                                <div class="challenge-node">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-start mb-2">
-                                            <h6 class="mb-0 fw-bold"><?= htmlspecialchars($c['title']) ?></h6>
-                                            <span class="points-badge"><?= $c['points'] ?> pts</span>
-                                        </div>
-                                        <p class="text-secondary mb-2 small"><?= htmlspecialchars($c['description'] ?? 'No description') ?></p>
-                                        <div class="d-flex flex-wrap gap-2 mb-2">
-                                            <?php if ($c['category']): ?>
-                                                <span class="category-badge">
-                                                    <i class="fas fa-tag me-1"></i><?= htmlspecialchars($c['category']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                            <?php if ($c['skill_tags']): 
-                                                $tags = explode(',', $c['skill_tags']);
-                                                foreach ($tags as $tag):
-                                                    $trimmedTag = trim($tag);
-                                                    if (!empty($trimmedTag)):
-                                            ?>
-                                                <span class="skill-tag"><?= htmlspecialchars($trimmedTag) ?></span>
-                                            <?php 
-                                                    endif;
-                                                endforeach; 
-                                            endif; ?>
-                                        </div>
-                                        <div class="d-flex gap-2 flex-wrap">
-                                            <span class="badge-status bg-light border text-dark"><?= htmlspecialchars($c['type']) ?></span>
-                                            <span class="badge-status <?= $c['status']=='Active' ? 'badge-active' : 'badge-inactive' ?>">
-                                                <?= htmlspecialchars($c['status']) ?>
-                                            </span>
-                                            <?php if ($c['schedule_type'] != 'none'): ?>
-                                                <span class="schedule-badge"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $c['schedule_type']))) ?></span>
-                                            <?php endif; ?>
-                                        </div>
+        <?php if (!empty($currentLevelChallenges)): ?>
+            <div class="tree-path">
+                <div class="path-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-layer-group me-2"></i>
+                        Level <?= $currentLevel ?> Challenges
+                        <span class="badge bg-light text-dark ms-2">
+                            <?= count($currentLevelChallenges) ?> challenges
+                        </span>
+                    </h4>
+                </div>
+                
+                <div class="row g-3">
+                    <?php foreach ($currentLevelChallenges as $c): ?>
+                        <div class="col-lg-6">
+                            <div class="challenge-node">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="mb-0 fw-bold"><?= htmlspecialchars($c['title']) ?></h6>
+                                        <span class="points-badge"><?= $c['points'] ?> pts</span>
                                     </div>
-                                    <div class="ms-3 d-flex gap-2">
-                                        <button class="btn reward-btn" onclick="showRewardModal(<?= $c['id'] ?>)">
-                                            <i class="fas fa-gift me-1"></i>Reward
-                                        </button>
-                                        <a href="../../Controllers/ChallengesController.php?action=get&id=<?= $c['id'] ?>" class="btn edit-btn">
-                                            <i class="fas fa-edit me-1"></i>Edit
-                                        </a>
-                                        <a href="../../Controllers/ChallengesController.php?action=delete&id=<?= $c['id'] ?>" class="btn delete-btn" onclick="return confirm('Are you sure you want to delete this challenge?')">
-                                            <i class="fas fa-trash me-1"></i>Delete
-                                        </a>
+                                    <p class="text-secondary mb-2 small"><?= htmlspecialchars($c['description'] ?? 'No description') ?></p>
+                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                        <?php if ($c['category']): ?>
+                                            <span class="category-badge">
+                                                <i class="fas fa-tag me-1"></i><?= htmlspecialchars($c['category']) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if ($c['skill_tags']): 
+                                            $tags = explode(',', $c['skill_tags']);
+                                            foreach ($tags as $tag):
+                                                $trimmedTag = trim($tag);
+                                                if (!empty($trimmedTag)):
+                                        ?>
+                                            <span class="skill-tag"><?= htmlspecialchars($trimmedTag) ?></span>
+                                        <?php 
+                                                endif;
+                                            endforeach; 
+                                        endif; ?>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="badge-status bg-light border text-dark"><?= htmlspecialchars($c['type']) ?></span>
+                                        <span class="badge-status <?= $c['status']=='Active' ? 'badge-active' : 'badge-inactive' ?>">
+                                            <?= htmlspecialchars($c['status']) ?>
+                                        </span>
+                                        <?php if ($c['schedule_type'] != 'none'): ?>
+                                            <span class="schedule-badge"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $c['schedule_type']))) ?></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
+                                <div class="ms-3 d-flex gap-2">
+                                    <button class="btn reward-btn" onclick="showRewardModal(<?= $c['id'] ?>)">
+                                        <i class="fas fa-gift me-1"></i>Reward
+                                    </button>
+                                    <a href="../../Controllers/ChallengesController.php?action=get&id=<?= $c['id'] ?>" class="btn edit-btn">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <a href="../../Controllers/ChallengesController.php?action=delete&id=<?= $c['id'] ?>" class="btn delete-btn" onclick="return confirm('Are you sure you want to delete this challenge?')">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </a>
+                                </div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
-            <?php endforeach; ?>
+            </div>
         <?php else: ?>
             <div class="text-center py-4">
                 <i class="fas fa-sitemap fa-3x text-muted mb-3"></i>
-                <h4 class="text-muted">No challenges organized in tree</h4>
-                <p class="text-muted">Create challenges and organize them into progression levels</p>
+                <h4 class="text-muted">No challenges in Level <?= $currentLevel ?></h4>
+                <p class="text-muted">Create challenges and assign them to this level</p>
             </div>
         <?php endif; ?>
     </div>
+
+    <!-- Level Navigation -->
+    <?php if (!empty($challengeTree)): ?>
+    <div class="level-navigation">
+        <div>
+            <?php if ($hasPrevLevel): ?>
+                <button class="level-btn" onclick="navigateToLevel(<?= $levels[$currentLevelIndex - 1] ?>)">
+                    <i class="fas fa-chevron-left"></i>
+                    Previous Level (<?= $levels[$currentLevelIndex - 1] ?>)
+                </button>
+            <?php else: ?>
+                <button class="level-btn" disabled>
+                    <i class="fas fa-chevron-left"></i>
+                    Previous Level
+                </button>
+            <?php endif; ?>
+        </div>
+        
+        <div class="level-indicator">
+            <span class="badge">
+                <i class="fas fa-layer-group me-1"></i>
+                Level <?= $currentLevel ?>
+                <?php if (!empty($currentLevelChallenges)): ?>
+                    <span class="badge bg-white text-dark ms-1">
+                        <?= count($currentLevelChallenges) ?> challenges
+                    </span>
+                <?php endif; ?>
+            </span>
+        </div>
+        
+        <div>
+            <?php if ($hasNextLevel): ?>
+                <button class="level-btn" onclick="navigateToLevel(<?= $levels[$currentLevelIndex + 1] ?>)">
+                    Next Level (<?= $levels[$currentLevelIndex + 1] ?>)
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            <?php else: ?>
+                <button class="level-btn" disabled>
+                    Next Level
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
 </main>
 
@@ -833,10 +986,19 @@ label {
                     <div class="mb-3">
                         <label for="tree_level" class="form-label">Tree Level</label>
                         <select id="tree_level" name="tree_level" class="form-control">
-                            <option value="0" <?= ($edit_challenge && $edit_challenge['tree_level'] == 0) || ($form_data && ($form_data['tree_level'] ?? '0') == '0') ? 'selected' : '' ?>>Level 0 - Foundation</option>
-                            <option value="1" <?= ($edit_challenge && $edit_challenge['tree_level'] == 1) || ($form_data && ($form_data['tree_level'] ?? '') == '1') ? 'selected' : '' ?>>Level 1 - Beginner</option>
-                            <option value="2" <?= ($edit_challenge && $edit_challenge['tree_level'] == 2) || ($form_data && ($form_data['tree_level'] ?? '') == '2') ? 'selected' : '' ?>>Level 2 - Intermediate</option>
-                            <option value="3" <?= ($edit_challenge && $edit_challenge['tree_level'] == 3) || ($form_data && ($form_data['tree_level'] ?? '') == '3') ? 'selected' : '' ?>>Level 3 - Advanced</option>
+                            <?php for ($i = 0; $i <= 10; $i++): ?>
+                                <option value="<?= $i ?>" <?= ($edit_challenge && $edit_challenge['tree_level'] == $i) || ($form_data && ($form_data['tree_level'] ?? '0') == $i) ? 'selected' : '' ?>>
+                                    Level <?= $i ?> - <?= 
+                                        $i == 0 ? 'Foundation' : 
+                                        ($i == 1 ? 'Beginner' : 
+                                        ($i == 2 ? 'Intermediate' : 
+                                        ($i == 3 ? 'Advanced' : 
+                                        ($i == 4 ? 'Expert' : 
+                                        ($i == 5 ? 'Master' : 
+                                        'Specialist'))))) 
+                                    ?>
+                                </option>
+                            <?php endfor; ?>
                         </select>
                     </div>
                 </div>
@@ -924,7 +1086,7 @@ document.getElementById('schedule_type').addEventListener('change', function() {
 
 function hideForm() {
     document.getElementById('challengeForm').style.display = 'none';
-    window.location.href = 'Challenges.php';
+    window.location.href = 'Challenges.php?level=<?= $currentLevel ?>';
 }
 
 document.getElementById('challengeFormData').addEventListener('submit', function(e) {
@@ -1079,6 +1241,11 @@ document.addEventListener('click', function(e) {
         skillTagSuggestions.style.display = 'none';
     }
 });
+
+// Level navigation function
+function navigateToLevel(level) {
+    window.location.href = `?level=${level}`;
+}
 
 setTimeout(() => {
     const toasts = document.querySelectorAll('.message-toast');
