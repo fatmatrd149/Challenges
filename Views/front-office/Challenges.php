@@ -283,33 +283,57 @@ body {
 }
 .level-pagination {
     background: white;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 20px;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 30px 0 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 .level-nav-btn {
     background: #2563eb;
     color: white;
     border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
     font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.level-nav-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
 }
 .level-nav-btn:disabled {
-    background: #9ca3af;
+    background: #e5e7eb;
+    color: #6b7280;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+.level-nav-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
 }
 .level-indicator {
     text-align: center;
+}
+.level-indicator .badge {
+    background: #2563eb;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
 }
 .sort-options {
     background: white;
     padding: 15px;
     border-radius: 10px;
     margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 .sort-btn {
     background: #e5e7eb;
@@ -318,6 +342,9 @@ body {
     border-radius: 6px;
     margin: 0 5px;
     transition: all 0.3s ease;
+    text-decoration: none !important; /* Remove underline */
+    color: #374151;
+    display: inline-block;
 }
 .sort-btn.active {
     background: #2563eb;
@@ -325,6 +352,7 @@ body {
 }
 .sort-btn:hover {
     transform: translateY(-2px);
+    text-decoration: none !important; /* Remove underline on hover */
 }
 .category-badge {
     display: inline-block;
@@ -660,27 +688,6 @@ html {
             <i class="fas fa-sitemap me-2"></i>
             Learning Paths
         </h3>
-        
-        <!-- Level Pagination Controls -->
-        <div class="level-pagination">
-            <button class="level-nav-btn" onclick="changeLevel(-1)" <?= $currentLevel == 0 ? 'disabled' : '' ?>>
-                <i class="fas fa-chevron-left me-2"></i>Previous Level
-            </button>
-            
-            <div class="level-indicator">
-                <h5 class="mb-1">Level <?= $currentLevel ?></h5>
-                <small class="text-muted">
-                    <?php 
-                    $canAccess = Challenges::canAccessLevel($pdo, $studentID, $currentLevel);
-                    echo $canAccess ? 'Ready to start!' : 'Complete previous level first';
-                    ?>
-                </small>
-            </div>
-            
-            <button class="level-nav-btn" onclick="changeLevel(1)" <?= $currentLevel >= 2 ? 'disabled' : '' ?>>
-                Next Level<i class="fas fa-chevron-right ms-2"></i>
-            </button>
-        </div>
 
         <!-- Sorting Options -->
         <div class="sort-options">
@@ -830,6 +837,49 @@ html {
                     <p class="text-muted">Complete prerequisite challenges to unlock more!</p>
                 </div>
             <?php endif; ?>
+        </div>
+
+        <!-- Level Pagination Controls - MOVED TO BOTTOM -->
+        <div class="level-pagination">
+            <div>
+                <?php if ($currentLevel > 0): ?>
+                    <button class="level-nav-btn" onclick="changeLevel(-1)">
+                        <i class="fas fa-chevron-left"></i>
+                        Previous Level (<?= $currentLevel - 1 ?>)
+                    </button>
+                <?php else: ?>
+                    <button class="level-nav-btn" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                        Previous Level
+                    </button>
+                <?php endif; ?>
+            </div>
+            
+            <div class="level-indicator">
+                <span class="badge">
+                    <i class="fas fa-layer-group me-1"></i>
+                    Level <?= $currentLevel ?>
+                    <?php if (!empty($levelChallenges)): ?>
+                        <span class="badge bg-white text-dark ms-1">
+                            <?= count($levelChallenges) ?> challenges
+                        </span>
+                    <?php endif; ?>
+                </span>
+            </div>
+            
+            <div>
+                <?php if ($currentLevel < 2): ?>
+                    <button class="level-nav-btn" onclick="changeLevel(1)">
+                        Next Level (<?= $currentLevel + 1 ?>)
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                <?php else: ?>
+                    <button class="level-nav-btn" disabled>
+                        Next Level
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
