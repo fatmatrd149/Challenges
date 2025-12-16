@@ -6,23 +6,36 @@ require_once __DIR__ . '/../Models/Points.php';
 
 class RewardsController {
     public static function handle($pdo) {
-        $action = $_GET['action'] ?? '';
+        $action = $_POST['action'] ?? $_GET['action'] ?? '';
         
         error_log("RewardsController Session userID: " . ($_SESSION['userID'] ?? 'NOT SET'));
         
         $studentID = $_SESSION['userID'] ?? 3; 
         $userRole = $_SESSION['role'] ?? 'student';
         
+        // Determine redirect page based on user role
         switch ($userRole) {
             case 'teacher':
-                $redirectPage = '../Views/teacher-front-office/Rewards.php';
+                $baseRedirectPage = '../Views/teacher-front-office/Rewards.php';
                 break;
             case 'admin':
-                $redirectPage = '../Views/admin-back-office/Rewards.php';
+                $baseRedirectPage = '../Views/admin-back-office/Rewards.php';
                 break;
             default:
-                $redirectPage = '../Views/front-office/Rewards.php';
+                $baseRedirectPage = '../Views/front-office/Rewards.php';
         }
+        
+        // Get current tab and category for proper redirect
+        $tab = $_POST['tab'] ?? $_GET['tab'] ?? 'rewards';
+        $category = $_POST['category'] ?? $_GET['category'] ?? '';
+        
+        // Build redirect URL with parameters
+        $redirectParams = "?tab=" . urlencode($tab);
+        if (!empty($category)) {
+            $redirectParams .= "&category=" . urlencode($category);
+        }
+        
+        $redirectPage = $baseRedirectPage . $redirectParams;
 
         switch ($action) {
             case 'create': 
@@ -33,6 +46,15 @@ class RewardsController {
                 break;
             case 'delete': 
                 self::deleteReward($pdo, $redirectPage); 
+                break;
+            case 'create_bundle': 
+                self::createBundle($pdo, $redirectPage); 
+                break;
+            case 'update_bundle': 
+                self::updateBundle($pdo, $redirectPage); 
+                break;
+            case 'delete_bundle': 
+                self::deleteBundle($pdo, $redirectPage); 
                 break;
             case 'redeem': 
                 self::redeemReward($pdo, $studentID); 
@@ -50,7 +72,7 @@ class RewardsController {
                 self::redeemBundle($pdo, $studentID); 
                 break;
             default: 
-                header("Location: $redirectPage?error=Invalid action"); 
+                header("Location: $baseRedirectPage?error=Invalid action"); 
                 exit;
         }
     }
@@ -116,7 +138,7 @@ class RewardsController {
     }
 
     private static function updateReward($pdo, $redirectPage) {
-        $id = (int)($_GET['id'] ?? 0);
+        $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
         if ($id <= 0) { 
             $_SESSION['error'] = 'Invalid reward ID';
             header("Location: $redirectPage");
@@ -183,7 +205,7 @@ class RewardsController {
     }
 
     private static function deleteReward($pdo, $redirectPage) {
-        $id = (int)($_GET['id'] ?? 0);
+        $id = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
         if ($id <= 0) { 
             $_SESSION['error'] = 'Invalid reward ID';
             header("Location: $redirectPage");
@@ -206,6 +228,151 @@ class RewardsController {
         }
     }
 
+    private static function createBundle($pdo, $redirectPage) {
+        try {
+            $name = trim($_POST['name'] ?? '');
+            $description = trim($_POST['description'] ?? '');
+            $total_cost = (int)($_POST['total_cost'] ?? 0);
+            $discount_percentage = (int)($_POST['discount_percentage'] ?? 0);
+            $limited_quantity = !empty($_POST['limited_quantity']) ? (int)$_POST['limited_quantity'] : null;
+            $status = $_POST['status'] ?? 'active';
+            $reward_ids = $_POST['reward_ids'] ?? [];
+
+            // Validation
+            $errors = [];
+            if(strlen($name) < 3) $errors[] = "Bundle name must be at least 3 characters";
+            if(strlen($description) < 3) $errors[] = "Description must be at least 3 characters";
+            if($total_cost < 1) $errors[] = "Total cost must be at least 1 point";
+            if($discount_percentage < 0 || $discount_percentage > 100) $errors[] = "Discount must be between 0 and 100";
+            if(empty($reward_ids)) $errors[] = "Select at least one reward for the bundle";
+            if(!in_array($status, ['active', 'upcoming', 'expired', 'inactive'])) $errors[] = "Invalid status";
+
+            if(!empty($errors)){
+                $_SESSION['error'] = implode(", ", $errors);
+                header("Location: $redirectPage");
+                exit;
+            }
+
+            // Create bundle
+            $stmt = $pdo->prepare("
+                INSERT INTO reward_bundles 
+                (name, description, total_cost, discount_percentage, limited_quantity, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([$name, $description, $total_cost, $discount_percentage, $limited_quantity, $status]);
+            $bundleId = $pdo->lastInsertId();
+
+            // Add rewards to bundle
+            foreach($reward_ids as $reward_id) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO bundle_items (bundle_id, reward_id)
+                    VALUES (?, ?)
+                ");
+                $stmt->execute([$bundleId, $reward_id]);
+            }
+
+            $_SESSION['success'] = 'Bundle created successfully';
+            header("Location: $redirectPage");
+            exit;
+
+        } catch (Exception $e) {
+            $_SESSION['error'] = $e->getMessage();
+            header("Location: $redirectPage");
+            exit;
+        }
+    }
+
+    private static function updateBundle($pdo, $redirectPage) {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) { 
+            $_SESSION['error'] = 'Invalid bundle ID';
+            header("Location: $redirectPage");
+            exit;
+        }
+        
+        try {
+            $name = trim($_POST['name'] ?? '');
+            $description = trim($_POST['description'] ?? '');
+            $total_cost = (int)($_POST['total_cost'] ?? 0);
+            $discount_percentage = (int)($_POST['discount_percentage'] ?? 0);
+            $limited_quantity = !empty($_POST['limited_quantity']) ? (int)$_POST['limited_quantity'] : null;
+            $status = $_POST['status'] ?? 'active';
+            $reward_ids = $_POST['reward_ids'] ?? [];
+
+            // Validation
+            $errors = [];
+            if(strlen($name) < 3) $errors[] = "Bundle name must be at least 3 characters";
+            if(strlen($description) < 3) $errors[] = "Description must be at least 3 characters";
+            if($total_cost < 1) $errors[] = "Total cost must be at least 1 point";
+            if($discount_percentage < 0 || $discount_percentage > 100) $errors[] = "Discount must be between 0 and 100";
+            if(empty($reward_ids)) $errors[] = "Select at least one reward for the bundle";
+            if(!in_array($status, ['active', 'upcoming', 'expired', 'inactive'])) $errors[] = "Invalid status";
+
+            if(!empty($errors)){
+                $_SESSION['error'] = implode(", ", $errors);
+                header("Location: $redirectPage");
+                exit;
+            }
+
+            // Update bundle
+            $stmt = $pdo->prepare("
+                UPDATE reward_bundles SET 
+                name = ?, description = ?, total_cost = ?, 
+                discount_percentage = ?, limited_quantity = ?, status = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$name, $description, $total_cost, $discount_percentage, $limited_quantity, $status, $id]);
+
+            // Remove existing items and add new ones
+            $stmt = $pdo->prepare("DELETE FROM bundle_items WHERE bundle_id = ?");
+            $stmt->execute([$id]);
+
+            foreach($reward_ids as $reward_id) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO bundle_items (bundle_id, reward_id)
+                    VALUES (?, ?)
+                ");
+                $stmt->execute([$id, $reward_id]);
+            }
+
+            $_SESSION['success'] = 'Bundle updated successfully';
+            header("Location: $redirectPage");
+            exit;
+
+        } catch (Exception $e) {
+            $_SESSION['error'] = $e->getMessage();
+            header("Location: $redirectPage");
+            exit;
+        }
+    }
+
+    private static function deleteBundle($pdo, $redirectPage) {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) { 
+            $_SESSION['error'] = 'Invalid bundle ID';
+            header("Location: $redirectPage");
+            exit;
+        }
+        
+        try {
+            // First delete bundle items
+            $stmt = $pdo->prepare("DELETE FROM bundle_items WHERE bundle_id = ?");
+            $stmt->execute([$id]);
+            
+            // Then delete bundle
+            $stmt = $pdo->prepare("DELETE FROM reward_bundles WHERE id = ?");
+            $stmt->execute([$id]);
+            
+            $_SESSION['success'] = 'Bundle deleted successfully';
+            header("Location: $redirectPage");
+            exit;
+        } catch (Exception $e) {
+            $_SESSION['error'] = $e->getMessage();
+            header("Location: $redirectPage");
+            exit;
+        }
+    }
+
     private static function redeemReward($pdo, $studentID) {
         $id = (int)($_GET['id'] ?? 0);
         if ($id <= 0) { 
@@ -215,10 +382,9 @@ class RewardsController {
         }
         
         try {
-            // DEBUG: Log redemption attempt
             error_log("Redeem attempt: Student ID=$studentID, Reward ID=$id");
             
-            // Check if student has enough points for direct redemption
+            // Check if student has enough points
             $stmt = $pdo->prepare("SELECT points FROM users WHERE id = ?");
             $stmt->execute([$studentID]);
             $student = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -231,7 +397,6 @@ class RewardsController {
             
             // If student is missing less than 10 points, require teacher approval
             if ($studentPoints < $rewardCost && ($rewardCost - $studentPoints) <= 10) {
-                // Request teacher approval instead of direct redemption
                 $stmt = $pdo->prepare("
                     INSERT INTO reward_requests 
                     (student_id, reward_id, student_message, requested_at) 
@@ -301,7 +466,7 @@ class RewardsController {
     }
     
     private static function teacherApprove($pdo, $teacherID, $redirectPage) {
-        $requestID = (int)($_GET['request_id'] ?? 0);
+        $requestID = (int)($_POST['request_id'] ?? $_GET['request_id'] ?? 0);
         $notes = $_POST['notes'] ?? 'Approved by teacher';
         
         if ($requestID <= 0) {
@@ -364,7 +529,7 @@ class RewardsController {
     }
     
     private static function teacherReject($pdo, $teacherID, $redirectPage) {
-        $requestID = (int)($_GET['request_id'] ?? 0);
+        $requestID = (int)($_POST['request_id'] ?? $_GET['request_id'] ?? 0);
         $notes = $_POST['notes'] ?? 'Rejected by teacher';
         
         if ($requestID <= 0) {
