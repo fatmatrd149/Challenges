@@ -42,46 +42,55 @@ class Challenges {
         $stmt = $pdo->prepare("DELETE FROM challenge_rewards WHERE challenge_id = ?");
         $stmt->execute([$id]);
         
+        // Delete challenge ratings
+        $stmt = $pdo->prepare("DELETE FROM challenge_ratings WHERE challenge_id = ?");
+        $stmt->execute([$id]);
+        
         $stmt = $pdo->prepare("DELETE FROM challenges WHERE id = ?");
         return $stmt->execute([$id]);
     }
 
     public static function complete($pdo, $challengeID, $studentID) {
-        // Check if already completed
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
-        $stmt->execute([$studentID, $challengeID]);
-        if ($stmt->fetchColumn() > 0) return false;
-        
-        // Check prerequisites
-        $stmt = $pdo->prepare("SELECT prerequisite_id, tree_level FROM challenges WHERE id = ?");
-        $stmt->execute([$challengeID]);
-        $challenge = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($challenge['prerequisite_id']) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
-            $stmt->execute([$studentID, $challenge['prerequisite_id']]);
-            if ($stmt->fetchColumn() == 0) {
-                return false; // Prerequisite not completed
-            }
+    // Check if already completed FIRST
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+    $stmt->execute([$studentID, $challengeID]);
+    if ($stmt->fetchColumn() > 0) {
+        return false; // Already completed
+    }
+    
+    // Get challenge details including level and prerequisite
+    $stmt = $pdo->prepare("SELECT prerequisite_id, tree_level, points, status FROM challenges WHERE id = ?");
+    $stmt->execute([$challengeID]);
+    $challenge = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$challenge) {
+        return false;
+    }
+    
+    // CRITICAL: Level 0 challenges - NO RESTRICTIONS AT ALL
+    $treeLevel = (int)$challenge['tree_level'];
+    
+    // For level 0 challenges, skip ALL checks - just complete it
+    if ($treeLevel == 0) {
+        // Level 0 - no status check, no prerequisite check, just complete it
+        $pointsAwarded = (int)($challenge['points'] ?? 0);
+        if ($pointsAwarded < 0) {
+            $pointsAwarded = 0;
         }
-        
-        // Get challenge points
-        $stmt = $pdo->prepare("SELECT points FROM challenges WHERE id = ?");
-        $stmt->execute([$challengeID]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row) return false;
-        
-        $pointsAwarded = $row['points'];
         
         $pdo->beginTransaction();
         try {
             // Award points
-            $stmt = $pdo->prepare("UPDATE users SET points = points + ? WHERE id = ?");
-            $stmt->execute([$pointsAwarded, $studentID]);
+            $stmt = $pdo->prepare("UPDATE users SET points = COALESCE(points, 0) + ? WHERE id = ?");
+            if (!$stmt->execute([$pointsAwarded, $studentID])) {
+                throw new Exception("Failed to update user points");
+            }
             
             // Log completion
-            $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, activity_type, target_id, points_amount, details) VALUES (?, 'challenge_complete', ?, ?, ?)");
-            $stmt->execute([$studentID, $challengeID, $pointsAwarded, 'Challenge completed']);
+            $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, activity_type, target_id, points_amount, details) VALUES (?, 'challenge_complete', ?, ?, 'Challenge completed')");
+            if (!$stmt->execute([$studentID, $challengeID, $pointsAwarded])) {
+                throw new Exception("Failed to log challenge completion");
+            }
             
             // Check for tier achievements
             self::checkTierAchievements($pdo, $studentID);
@@ -90,18 +99,63 @@ class Challenges {
             return $pointsAwarded;
         } catch (Exception $e) {
             $pdo->rollBack();
+            error_log("Error completing level 0 challenge: " . $e->getMessage());
             return false;
         }
     }
-
+    
+    // For non-level-0 challenges, check status and prerequisites
+    if ($challenge['status'] !== 'Active') {
+        return false;
+    }
+    
+    if (!empty($challenge['prerequisite_id'])) {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+        $stmt->execute([$studentID, $challenge['prerequisite_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            return false; // Prerequisite not completed
+        }
+    }
+    
+    $pointsAwarded = (int)($challenge['points'] ?? 0);
+    if ($pointsAwarded < 0) {
+        $pointsAwarded = 0;
+    }
+    
+    $pdo->beginTransaction();
+    try {
+        // Award points
+        $stmt = $pdo->prepare("UPDATE users SET points = COALESCE(points, 0) + ? WHERE id = ?");
+        if (!$stmt->execute([$pointsAwarded, $studentID])) {
+            throw new Exception("Failed to update user points");
+        }
+        
+        // Log completion
+        $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, activity_type, target_id, points_amount, details) VALUES (?, 'challenge_complete', ?, ?, 'Challenge completed')");
+        if (!$stmt->execute([$studentID, $challengeID, $pointsAwarded])) {
+            throw new Exception("Failed to log challenge completion");
+        }
+        
+        // Check for tier achievements
+        self::checkTierAchievements($pdo, $studentID);
+        
+        $pdo->commit();
+        return $pointsAwarded;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Error completing challenge: " . $e->getMessage());
+        return false;
+    }
+}
     private static function checkTierAchievements($pdo, $studentID) {
+        // Get user's total points - Use whatever column redemption uses
         $stmt = $pdo->prepare("SELECT points FROM users WHERE id = ?");
         $stmt->execute([$studentID]);
         $student = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$student) return;
         
-        $points = $student['points'];
+        $points = $student['points'] ?? 0;
         
         // Get all tiers
         $stmt = $pdo->prepare("SELECT * FROM reward_tiers WHERE status = 'Active' ORDER BY min_points ASC");
@@ -114,8 +168,8 @@ class Challenges {
                 $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'tier_achievement' AND target_id = ?");
                 $stmt->execute([$studentID, $tier['id']]);
                 if ($stmt->fetchColumn() == 0) {
-                    // Log tier achievement
-                    $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, activity_type, target_id, details) VALUES (?, 'tier_achievement', ?, ?)");
+                    // Log tier achievement - FIXED: removed 'timestamp' column, use default created_at
+                    $stmt = $pdo->prepare("INSERT INTO activity_log (user_id, activity_type, target_id, points_amount, details) VALUES (?, 'tier_achievement', ?, 0, ?)");
                     $stmt->execute([$studentID, $tier['id'], "Reached {$tier['name']} Tier at {$points} points"]);
                 }
             }
@@ -142,6 +196,7 @@ class Challenges {
             LEFT JOIN activity_log al ON c.id = al.target_id 
                 AND al.user_id = ? 
                 AND al.activity_type = 'challenge_complete'
+            WHERE c.status = 'Active'
             ORDER BY c.tree_level, c.tree_order, c.id
         ";
         
@@ -166,13 +221,26 @@ class Challenges {
 
     public static function getAvailableChallenges($pdo, $studentID) {
         $query = "
-            SELECT c.*
+            SELECT c.*,
+                   CASE 
+                       WHEN al.id IS NOT NULL THEN 1 
+                       ELSE 0 
+                   END as completed,
+                   CASE
+                       WHEN c.prerequisite_id IS NULL THEN 1
+                       WHEN EXISTS (
+                           SELECT 1 FROM activity_log 
+                           WHERE user_id = ? AND activity_type = 'challenge_complete' 
+                           AND target_id = c.prerequisite_id
+                       ) THEN 1
+                       ELSE 0
+                   END as unlocked
             FROM challenges c
+            LEFT JOIN activity_log al ON c.id = al.target_id 
+                AND al.user_id = ? 
+                AND al.activity_type = 'challenge_complete'
             WHERE c.status = 'Active'
-            AND c.id NOT IN (
-                SELECT target_id FROM activity_log 
-                WHERE user_id = ? AND activity_type = 'challenge_complete'
-            )
+            AND al.id IS NULL -- Not completed yet
             AND (
                 c.prerequisite_id IS NULL 
                 OR c.prerequisite_id IN (
@@ -184,7 +252,7 @@ class Challenges {
         ";
         
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$studentID, $studentID]);
+        $stmt->execute([$studentID, $studentID, $studentID]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -262,7 +330,7 @@ class Challenges {
             LEFT JOIN activity_log al ON c.id = al.target_id 
                 AND al.user_id = ? 
                 AND al.activity_type = 'challenge_complete'
-            WHERE c.tree_level = ?
+            WHERE c.tree_level = ? AND c.status = 'Active'
         ");
         $stmt->execute([$studentID, $level - 1]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -271,20 +339,11 @@ class Challenges {
     }
 
     public static function getTierProgress($pdo, $studentID) {
-        $stmt = $pdo->prepare("SELECT points FROM users WHERE id = ?");
-        $stmt->execute([$studentID]);
-        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Use whatever column name your Points model uses
+        require_once __DIR__ . '/Points.php';
+        $balance = Points::getBalance($pdo, $studentID);
         
-        if (!$student) {
-            return [
-                'current_tier' => null,
-                'next_tier' => null,
-                'progress' => 0,
-                'points_to_next' => 0
-            ];
-        }
-        
-        $points = $student['points'];
+        $points = $balance;
         
         $stmt = $pdo->prepare("SELECT * FROM reward_tiers WHERE status = 'Active' ORDER BY min_points ASC");
         $stmt->execute();
@@ -459,5 +518,44 @@ class Challenges {
         $stmt->execute([$studentID, $studentID, $category]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
- }
+    
+    // NEW METHOD: Check if a challenge can be attempted
+public static function canAttemptChallenge($pdo, $studentID, $challengeID) {
+    // Check if already completed
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+    $stmt->execute([$studentID, $challengeID]);
+    if ($stmt->fetchColumn() > 0) {
+        return false;
+    }
+    
+    // Get challenge details including tree_level
+    $stmt = $pdo->prepare("SELECT prerequisite_id, tree_level, status FROM challenges WHERE id = ?");
+    $stmt->execute([$challengeID]);
+    $challenge = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$challenge || $challenge['status'] !== 'Active') return false;
+    
+    // CRITICAL FIX: Level 0 challenges should ALWAYS be attemptable - no prerequisite check
+    // Only check prerequisites for challenges above level 0
+    if ($challenge['tree_level'] == 0) {
+        // Level 0 challenges are always allowed - skip prerequisite check entirely
+        return true;
+    } else if ($challenge['tree_level'] > 0 && $challenge['prerequisite_id']) {
+        // For levels above 0, check if prerequisite is completed
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+        $stmt->execute([$studentID, $challenge['prerequisite_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            return false; // Prerequisite not completed
+        }
+    }
+    
+    return true;
+}
+    
+    // NEW METHOD: Get user's current points balance - Use Points model
+    public static function getUserPoints($pdo, $studentID) {
+        require_once __DIR__ . '/Points.php';
+        return Points::getBalance($pdo, $studentID);
+    }
+}
 ?>
