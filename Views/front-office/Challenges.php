@@ -6,7 +6,9 @@ require_once __DIR__ . '/../../Models/Rewards.php';
 require_once __DIR__ . '/../../Models/Points.php';
 
 $studentID = $_SESSION['userID'] ?? 3;
-$availableChallenges = Challenges::getAvailableChallenges($pdo, $studentID);
+
+// Get ALL challenges to display
+$allChallenges = Challenges::getAll($pdo);
 $timeLimitedChallenges = Challenges::getTimeLimitedChallenges($pdo);
 $recurringChallenges = Challenges::getRecurringChallenges($pdo);
 
@@ -109,12 +111,13 @@ body {
 }
 
 .tier-progress-section {
-    background: white;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 15px;
     padding: 25px;
     margin-bottom: 30px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    border-left: 5px solid #2563eb;
+    border-left: 5px solid;
+    border-image: linear-gradient(to bottom, #2563eb, #7c3aed) 1;
 }
 .progress-container { 
     background: #e5e7eb; 
@@ -129,8 +132,22 @@ body {
     transition: width 0.5s ease; 
 }
 .tier-badge {
-    font-size: 2rem;
-    margin-bottom: 10px;
+    font-size: 4rem;
+    margin-bottom: 15px;
+    animation: pulse 2s infinite;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 .special-challenges-section {
@@ -255,12 +272,87 @@ body {
     transform: translateY(-2px); 
     box-shadow: 0 6px 20px rgba(0,0,0,0.1);
 }
+
+/* BLUE SECTION TITLES */
 .section-title {
-    color: #1f2937;
+    color: #1e40af; /* Changed from #1f2937 to blue */
     font-weight: 700;
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 3px solid #2563eb;
+}
+
+/* Colorful section icons */
+.section-title i {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 5px;
+    margin-right: 10px;
+    font-size: 1.2em;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Specific colors for different section icons */
+.section-title .fa-trophy {
+    background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.section-title .fa-bolt {
+    background: linear-gradient(135deg, #dc2626, #f87171);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.section-title .fa-sitemap {
+    background: linear-gradient(135deg, #059669, #10b981);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.section-title .fa-list-alt {
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+.section-title .fa-layer-group {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* Special challenge section headers */
+.special-challenges-section h5 i {
+    background: linear-gradient(135deg, currentColor, currentColor);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Time-limited icon specific color */
+.special-challenges-section .fa-clock {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* Recurring icon specific color */
+.special-challenges-section .fa-sync-alt {
+    background: linear-gradient(135deg, #059669, #10b981);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* Make the tier name stand out more */
+.tier-badge + div {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
 }
 
 .message-toast {
@@ -276,6 +368,8 @@ body {
     box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3);
     font-size: 1rem;
     display: none;
+    max-width: 400px;
+    word-wrap: break-word;
 }
 .message-toast.success {
     background: #059669;
@@ -342,9 +436,10 @@ body {
     border-radius: 6px;
     margin: 0 5px;
     transition: all 0.3s ease;
-    text-decoration: none !important; /* Remove underline */
+    text-decoration: none !important;
     color: #374151;
     display: inline-block;
+    cursor: pointer;
 }
 .sort-btn.active {
     background: #2563eb;
@@ -352,7 +447,7 @@ body {
 }
 .sort-btn:hover {
     transform: translateY(-2px);
-    text-decoration: none !important; /* Remove underline on hover */
+    text-decoration: none !important;
 }
 .category-badge {
     display: inline-block;
@@ -439,7 +534,7 @@ html {
 
 <?php if ($success_message): ?>
 <div class="message-toast success" style="display: block;">
-    <?= htmlspecialchars($success_message) ?>
+    <?= $success_message ?>
 </div>
 <?php endif; ?>
 
@@ -533,7 +628,7 @@ html {
                 <div class="tier-badge">
                     <?= $currentTier ? $currentTier['badge_name'] : '🎯' ?>
                 </div>
-                <div class="fw-bold" style="color: #2563eb;">
+                <div class="fw-bold" style="color: #2563eb; font-size: 1.3rem;">
                     <?= $currentTier ? $currentTier['name'] . ' Tier' : 'Getting Started' ?>
                 </div>
             </div>
@@ -560,11 +655,25 @@ html {
                     $stmt->execute([$studentID, $challenge['id']]);
                     $completed = $stmt->fetchColumn() > 0;
                     
+                    // Check if can attempt (prerequisites met)
+                    $canAttempt = true;
+                    if ($challenge['prerequisite_id']) {
+                        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+                        $stmt->execute([$studentID, $challenge['prerequisite_id']]);
+                        $canAttempt = $stmt->fetchColumn() > 0;
+                    }
+                    
                     if (!$completed): 
                     $rating = Challenges::getAverageRating($pdo, $challenge['id']);
                     ?>
-                    <div class="challenge-node mb-3">
-                        <div class="node-status">⏰</div>
+                    <div class="challenge-node mb-3 <?= !$canAttempt ? 'locked' : '' ?>">
+                        <div class="node-status">
+                            <?php if (!$canAttempt): ?>
+                                🔒
+                            <?php else: ?>
+                                ⏰
+                            <?php endif; ?>
+                        </div>
                         <div class="flex-grow-1">
                             <h6 class="mb-1 fw-bold"><?= htmlspecialchars($challenge['title']) ?></h6>
                             <div class="d-flex align-items-center mb-1">
@@ -605,10 +714,17 @@ html {
                                 </div>
                             <?php endif; ?>
                         </div>
+                        <?php if ($canAttempt): ?>
                         <button class="btn start-btn" 
                                 onclick="startChallenge(<?= $challenge['id'] ?>, '<?= htmlspecialchars(addslashes($challenge['title'])) ?>', <?= (int)$challenge['points'] ?>)">
                             Start
                         </button>
+                        <?php else: ?>
+                        <button class="btn locked-btn" disabled>
+                            <i class="fas fa-lock me-2"></i>
+                            Locked
+                        </button>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -628,11 +744,25 @@ html {
                     $stmt->execute([$studentID, $challenge['id']]);
                     $completed = $stmt->fetchColumn() > 0;
                     
+                    // Check if can attempt (prerequisites met)
+                    $canAttempt = true;
+                    if ($challenge['prerequisite_id']) {
+                        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+                        $stmt->execute([$studentID, $challenge['prerequisite_id']]);
+                        $canAttempt = $stmt->fetchColumn() > 0;
+                    }
+                    
                     if (!$completed): 
                     $rating = Challenges::getAverageRating($pdo, $challenge['id']);
                     ?>
-                    <div class="challenge-node mb-3">
-                        <div class="node-status">🔄</div>
+                    <div class="challenge-node mb-3 <?= !$canAttempt ? 'locked' : '' ?>">
+                        <div class="node-status">
+                            <?php if (!$canAttempt): ?>
+                                🔒
+                            <?php else: ?>
+                                🔄
+                            <?php endif; ?>
+                        </div>
                         <div class="flex-grow-1">
                             <h6 class="mb-1 fw-bold"><?= htmlspecialchars($challenge['title']) ?></h6>
                             <div class="d-flex align-items-center mb-1">
@@ -669,10 +799,17 @@ html {
                                 </div>
                             <?php endif; ?>
                         </div>
+                        <?php if ($canAttempt): ?>
                         <button class="btn start-btn" 
                                 onclick="startChallenge(<?= $challenge['id'] ?>, '<?= htmlspecialchars(addslashes($challenge['title'])) ?>', <?= (int)$challenge['points'] ?>)">
                             Start
                         </button>
+                        <?php else: ?>
+                        <button class="btn locked-btn" disabled>
+                            <i class="fas fa-lock me-2"></i>
+                            Locked
+                        </button>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -693,18 +830,18 @@ html {
         <div class="sort-options">
             <h6 class="fw-semibold mb-3">Sort Challenges:</h6>
             <div class="d-flex flex-wrap">
-                <a href="javascript:void(0);" onclick="changeSort('default')" class="sort-btn <?= $sortBy == 'default' ? 'active' : '' ?>">
+                <button type="button" onclick="changeSort('default')" class="sort-btn <?= $sortBy == 'default' ? 'active' : '' ?>">
                     <i class="fas fa-sort me-1"></i>Default Order
-                </a>
-                <a href="javascript:void(0);" onclick="changeSort('points_high')" class="sort-btn <?= $sortBy == 'points_high' ? 'active' : '' ?>">
+                </button>
+                <button type="button" onclick="changeSort('points_high')" class="sort-btn <?= $sortBy == 'points_high' ? 'active' : '' ?>">
                     <i class="fas fa-sort-amount-down me-1"></i>Most Points
-                </a>
-                <a href="javascript:void(0);" onclick="changeSort('points_low')" class="sort-btn <?= $sortBy == 'points_low' ? 'active' : '' ?>">
+                </button>
+                <button type="button" onclick="changeSort('points_low')" class="sort-btn <?= $sortBy == 'points_low' ? 'active' : '' ?>">
                     <i class="fas fa-sort-amount-up me-1"></i>Fewest Points
-                </a>
-                <a href="javascript:void(0);" onclick="changeSort('newest')" class="sort-btn <?= $sortBy == 'newest' ? 'active' : '' ?>">
+                </button>
+                <button type="button" onclick="changeSort('newest')" class="sort-btn <?= $sortBy == 'newest' ? 'active' : '' ?>">
                     <i class="fas fa-calendar-plus me-1"></i>Newest First
-                </a>
+                </button>
             </div>
         </div>
 
@@ -745,13 +882,14 @@ html {
                     <?php foreach ($levelChallenges as $c): 
                         $rating = Challenges::getAverageRating($pdo, $c['id']);
                         $userRating = Challenges::getUserRating($pdo, $c['id'], $studentID);
+                        $canAttempt = $c['unlocked'] && $canAccess;
                     ?>
                         <div class="col-lg-6">
-                            <div class="challenge-node <?= $c['completed'] ? 'completed' : ($c['unlocked'] && $canAccess ? '' : 'locked') ?>">
+                            <div class="challenge-node <?= $c['completed'] ? 'completed' : (!$canAttempt ? 'locked' : '') ?>">
                                 <div class="node-status">
                                     <?php if ($c['completed']): ?>
                                         ✅
-                                    <?php elseif ($c['unlocked'] && $canAccess): ?>
+                                    <?php elseif ($canAttempt): ?>
                                         ⭐
                                     <?php else: ?>
                                         🔒
@@ -760,7 +898,8 @@ html {
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 fw-bold"><?= htmlspecialchars($c['title']) ?></h6>
                                     
-                                    <!-- Rating Display -->
+                                    <!-- Rating Display - ONLY SHOW FOR COMPLETED CHALLENGES -->
+                                    <?php if ($c['completed']): ?>
                                     <div class="d-flex align-items-center mb-1">
                                         <?php if ($rating['average'] > 0): ?>
                                         <div class="rating-stars me-2">
@@ -771,17 +910,18 @@ html {
                                         <small class="rating-count">(<?= $rating['count'] ?>)</small>
                                         <?php endif; ?>
                                         
-                                        <!-- Rate Button -->
-                                        <?php if ($c['completed'] && !$userRating): ?>
+                                        <!-- Rate Button - ONLY FOR COMPLETED CHALLENGES -->
+                                        <?php if (!$userRating): ?>
                                             <button class="btn btn-sm start-btn ms-2" onclick="openRatingModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>')">
                                                 <i class="fas fa-star me-1"></i>Rate
                                             </button>
-                                        <?php elseif ($userRating): ?>
+                                        <?php else: ?>
                                             <span class="badge bg-light text-dark ms-2">
                                                 <i class="fas fa-star text-warning me-1"></i>You rated: <?= $userRating['rating'] ?>/5
                                             </span>
                                         <?php endif; ?>
                                     </div>
+                                    <?php endif; ?>
                                     
                                     <small class="text-muted"><?= $c['points'] ?> points • <?= htmlspecialchars($c['type']) ?></small>
                                     
@@ -813,7 +953,7 @@ html {
                                         <button class="btn completed-btn" disabled>
                                             <i class="fas fa-check me-2"></i>Completed
                                         </button>
-                                    <?php elseif ($c['unlocked'] && $canAccess): ?>
+                                    <?php elseif ($canAttempt): ?>
                                         <button class="btn start-btn" 
                                                 onclick="startChallenge(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>', <?= (int)$c['points'] ?>)">
                                             <i class="fas fa-play-circle me-2"></i>
@@ -883,22 +1023,76 @@ html {
         </div>
     </div>
 
-    <!-- Available Challenges Grid -->
+    <!-- All Challenges Grid -->
     <div class="mb-4">
         <h3 class="section-title">
-            <i class="fas fa-bolt me-2"></i>Available Challenges
+            <i class="fas fa-list-alt me-2"></i>All Challenges
         </h3>
-        <p class="text-muted">Ready to start right now!</p>
+        <p class="text-muted">Browse all challenges. Complete Level 0 to unlock higher levels!</p>
     </div>
 
     <div class="row g-4">
-        <?php if ($availableChallenges): ?>
-            <?php foreach ($availableChallenges as $c): 
+        <?php 
+        if ($allChallenges): 
+            foreach ($allChallenges as $c): 
+                // Check if already completed
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+                $stmt->execute([$studentID, $c['id']]);
+                $completed = $stmt->fetchColumn() > 0;
+                
+                // Check if challenge can be attempted
+                // Level 0 challenges are always clickable
+                // Level 1 and 2 challenges are only clickable if all Level 0 challenges are completed
+                $canAttempt = false;
+                
+                if ($c['tree_level'] == 0) {
+                    // Level 0 - always available (unless already completed)
+                    $canAttempt = !$completed;
+                } else if ($c['tree_level'] == 1) {
+                    // Level 1 - check if all Level 0 challenges are completed
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(*) as total, 
+                               SUM(CASE WHEN al.id IS NOT NULL THEN 1 ELSE 0 END) as completed
+                        FROM challenges c
+                        LEFT JOIN activity_log al ON c.id = al.target_id 
+                            AND al.user_id = ? 
+                            AND al.activity_type = 'challenge_complete'
+                        WHERE c.tree_level = 0 AND c.status = 'Active'
+                    ");
+                    $stmt->execute([$studentID]);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    $canAttempt = ($result['total'] > 0 && $result['completed'] == $result['total']) && !$completed;
+                } else if ($c['tree_level'] == 2) {
+                    // Level 2 - check if all Level 1 challenges are completed
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(*) as total, 
+                               SUM(CASE WHEN al.id IS NOT NULL THEN 1 ELSE 0 END) as completed
+                        FROM challenges c
+                        LEFT JOIN activity_log al ON c.id = al.target_id 
+                            AND al.user_id = ? 
+                            AND al.activity_type = 'challenge_complete'
+                        WHERE c.tree_level = 1 AND c.status = 'Active'
+                    ");
+                    $stmt->execute([$studentID]);
+                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    $canAttempt = ($result['total'] > 0 && $result['completed'] == $result['total']) && !$completed;
+                }
+                
+                // For non-level-0 challenges, also check specific prerequisites
+                if ($c['tree_level'] > 0 && $c['prerequisite_id']) {
+                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+                    $stmt->execute([$studentID, $c['prerequisite_id']]);
+                    $hasPrerequisite = $stmt->fetchColumn() > 0;
+                    $canAttempt = $canAttempt && $hasPrerequisite;
+                }
+                
                 $rating = Challenges::getAverageRating($pdo, $c['id']);
                 $userRating = Challenges::getUserRating($pdo, $c['id'], $studentID);
-            ?>
+        ?>
                 <div class="col-lg-6 col-xl-4">
-                    <div class="challenge-card card h-100">
+                    <div class="challenge-card card h-100 <?= (!$canAttempt && !$completed) ? 'opacity-75' : '' ?>">
                         <div class="card-body p-4">
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <h3 class="card-title mb-0 fw-bold" style="color: #2563eb;">
@@ -910,15 +1104,15 @@ html {
                                 </span>
                             </div>
                             
-                            <!-- Rating Display -->
-                            <div class="d-flex align-items-center mb-2">
-                                <?php if ($rating['average'] > 0): ?>
-                                <div class="rating-stars me-2">
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <i class="fas fa-star" style="color: <?= $i <= $rating['average'] ? '#fbbf24' : '#e5e7eb' ?>;"></i>
-                                    <?php endfor; ?>
-                                </div>
-                                <small class="rating-count">(<?= $rating['count'] ?>)</small>
+                            <!-- Status Badge -->
+                            <div class="mb-3">
+                                <?php if ($completed): ?>
+                                    <span class="badge bg-success me-2"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                                <?php elseif (!$canAttempt): ?>
+                                    <span class="badge bg-warning me-2"><i class="fas fa-lock me-1"></i>Locked</span>
+                                <?php else: ?>
+                                    <span class="badge bg-success me-2"><?= htmlspecialchars($c['type']) ?></span>
+                                    <span class="badge bg-info text-white"><i class="fas fa-play-circle me-1"></i>Ready to Start!</span>
                                 <?php endif; ?>
                             </div>
                             
@@ -951,34 +1145,64 @@ html {
                             </div>
                             <?php endif; ?>
                             
+                            <!-- Level Indicator -->
                             <div class="mb-3">
-                                <span class="badge bg-success me-2"><?= htmlspecialchars($c['type']) ?></span>
-                                <span class="badge bg-info text-white">Ready to Start!</span>
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-layer-group me-1"></i>
+                                    Level <?= $c['tree_level'] ?>
+                                </span>
                             </div>
                             
-                            <!-- Rate Button for Completed Challenges -->
-                            <?php 
-                            $completed = false;
-                            $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
-                            $stmt->execute([$studentID, $c['id']]);
-                            $completed = $stmt->fetchColumn() > 0;
-                            
-                            if ($completed && !$userRating): ?>
-                                <button class="btn btn-outline-primary w-100 mb-2" onclick="openRatingModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>')">
-                                    <i class="fas fa-star me-2"></i>Rate this Challenge
-                                </button>
-                            <?php elseif ($userRating): ?>
-                                <div class="alert alert-light mb-2">
-                                    <i class="fas fa-star text-warning me-2"></i>
-                                    You rated this: <?= $userRating['rating'] ?>/5
+                            <!-- Rating Display - ONLY FOR COMPLETED CHALLENGES -->
+                            <?php if ($completed): ?>
+                                <div class="d-flex align-items-center mb-2">
+                                    <?php if ($rating['average'] > 0): ?>
+                                    <div class="rating-stars me-2">
+                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                            <i class="fas fa-star" style="color: <?= $i <= $rating['average'] ? '#fbbf24' : '#e5e7eb' ?>;"></i>
+                                        <?php endfor; ?>
+                                    </div>
+                                    <small class="rating-count">(<?= $rating['count'] ?>)</small>
+                                    <?php endif; ?>
                                 </div>
+                                
+                                <!-- Rate Button - ONLY FOR COMPLETED CHALLENGES -->
+                                <?php if (!$userRating): ?>
+                                    <button class="btn btn-outline-primary w-100 mb-2" onclick="openRatingModal(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>')">
+                                        <i class="fas fa-star me-2"></i>Rate this Challenge
+                                    </button>
+                                <?php else: ?>
+                                    <div class="alert alert-light mb-2">
+                                        <i class="fas fa-star text-warning me-2"></i>
+                                        You rated this: <?= $userRating['rating'] ?>/5
+                                    </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                             
-                            <button class="btn start-btn w-100" 
-                                    onclick="startChallenge(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>', <?= (int)$c['points'] ?>)">
-                                <i class="fas fa-play-circle me-2"></i>
-                                Start Challenge
-                            </button>
+                            <!-- Action Button -->
+                            <?php if ($completed): ?>
+                                <button class="btn completed-btn w-100" disabled>
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    Completed
+                                </button>
+                            <?php elseif (!$canAttempt): ?>
+                                <button class="btn locked-btn w-100" disabled>
+                                    <i class="fas fa-lock me-2"></i>
+                                    <?php if ($c['tree_level'] == 1): ?>
+                                        Complete All Level 0 Challenges First
+                                    <?php elseif ($c['tree_level'] == 2): ?>
+                                        Complete All Level 1 Challenges First
+                                    <?php else: ?>
+                                        Locked
+                                    <?php endif; ?>
+                                </button>
+                            <?php else: ?>
+                                <button class="btn start-btn w-100" 
+                                        onclick="startChallenge(<?= $c['id'] ?>, '<?= htmlspecialchars(addslashes($c['title'])) ?>', <?= (int)$c['points'] ?>)">
+                                    <i class="fas fa-play-circle me-2"></i>
+                                    Start Challenge
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -1081,9 +1305,36 @@ function submitRating() {
 }
 
 document.getElementById('confirmYes').addEventListener('click', function() {
-    document.getElementById('challengeConfirm').style.display = 'none';
+    if (!currentChallenge || !currentChallenge.id) {
+        alert('Error: Challenge information not found. Please refresh the page and try again.');
+        return;
+    }
     
-    window.location.href = '../../Controllers/ChallengesController.php?action=complete&id=' + currentChallenge.id;
+    // Disable both buttons immediately
+    const confirmYesBtn = document.getElementById('confirmYes');
+    const confirmNoBtn = document.getElementById('confirmNo');
+    confirmYesBtn.disabled = true;
+    confirmNoBtn.disabled = true;
+    
+    // Show loading state - keep modal visible with loading message
+    const confirmBox = document.querySelector('#challengeConfirm .confirm-box');
+    const originalContent = confirmBox.innerHTML;
+    confirmBox.innerHTML = `
+        <div class="text-center" style="padding: 40px;">
+            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 style="color: #2563eb; margin-bottom: 10px;">Processing Challenge...</h4>
+            <p style="color: #6b7280;">Please wait while we complete your challenge.</p>
+        </div>
+    `;
+    
+    // Redirect immediately
+    const url = '../../Controllers/ChallengesController.php?action=complete&id=' + currentChallenge.id;
+    console.log('Redirecting to: ' + url);
+    
+    // Use window.location.replace to prevent back button issues
+    window.location.replace(url);
 });
 
 document.getElementById('confirmNo').addEventListener('click', function() {
@@ -1155,6 +1406,40 @@ window.addEventListener('load', function() {
             }
         }, 200);
     }
+    
+    // Trigger confetti if there's a success message AND points were awarded
+    <?php if (!empty($success_message) && isset($_SESSION['points_awarded'])): ?>
+    setTimeout(() => {
+        if (typeof confetti === 'function') {
+            // Multiple bursts of confetti for celebration
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 }
+                });
+            }, 250);
+            
+            setTimeout(() => {
+                confetti({
+                    particleCount: 100,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 }
+                });
+            }, 400);
+        }
+        // Clear the session variable
+        <?php unset($_SESSION['points_awarded']); ?>
+    }, 800);
+    <?php endif; ?>
 });
 
 setTimeout(() => {
