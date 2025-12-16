@@ -16,6 +16,7 @@ class ChallengesController {
             case 'update': self::updateChallenge($pdo); break;
             case 'delete': self::deleteChallenge($pdo); break;
             case 'complete': self::completeChallenge($pdo, $studentID); break;
+            case 'check': self::checkChallenge($pdo, $studentID); break;
             case 'get': self::showOne($pdo); break;
             case 'leaderboard': self::showLeaderboard($pdo); break;
             case 'tree': self::showChallengeTree($pdo, $studentID); break;
@@ -380,31 +381,90 @@ class ChallengesController {
         }
     }
 
+    private static function checkChallenge($pdo, $studentID) {
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) { 
+            header('Content-Type: application/json');
+            echo json_encode(['can_attempt' => false]);
+            exit;
+        }
+        
+        try {
+            $canAttempt = Challenges::canAttemptChallenge($pdo, $studentID, $id);
+            header('Content-Type: application/json');
+            echo json_encode(['can_attempt' => $canAttempt]);
+            exit;
+        } catch (Exception $e) {
+            header('Content-Type: application/json');
+            echo json_encode(['can_attempt' => false, 'error' => $e->getMessage()]);
+            exit;
+        }
+    }
+
     private static function completeChallenge($pdo, $studentID) {
         $id = (int)($_GET['id'] ?? 0);
+        
         if ($id <= 0) { 
             $_SESSION['error_message'] = 'Invalid challenge ID';
             self::redirectBack();
             exit;
         }
         
+        // Check if already completed
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE user_id = ? AND activity_type = 'challenge_complete' AND target_id = ?");
+        $stmt->execute([$studentID, $id]);
+        if ($stmt->fetchColumn() > 0) {
+            $_SESSION['error_message'] = 'You have already completed this challenge!';
+            self::redirectBack();
+            exit;
+        }
+        
+        // Get challenge info
+        $stmt = $pdo->prepare("SELECT tree_level, points, status FROM challenges WHERE id = ?");
+        $stmt->execute([$id]);
+        $challenge = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$challenge) {
+            $_SESSION['error_message'] = 'Challenge not found';
+            self::redirectBack();
+            exit;
+        }
+        
+        $treeLevel = (int)$challenge['tree_level'];
+        
+        // For non-level-0 challenges, check status first
+        if ($treeLevel > 0 && $challenge['status'] !== 'Active') {
+            $_SESSION['error_message'] = 'This challenge is not currently active';
+            self::redirectBack();
+            exit;
+        }
+        
+        // Use the model method for ALL challenges (it now handles level 0 correctly)
         try {
             $result = Challenges::complete($pdo, $id, $studentID);
+            
             if ($result === false) {
-                $_SESSION['error_message'] = 'Cannot complete challenge. You may have already completed it or not met prerequisites.';
+                // More specific error message
+                $_SESSION['error_message'] = 'Unable to complete challenge. Please try again.';
                 self::redirectBack();
                 exit;
             }
-            $_SESSION['success_message'] = 'Challenge completed successfully! Points awarded: ' . $result;
+            
+            // Success!
+            $newBalance = Points::getBalance($pdo, $studentID);
+            $_SESSION['success_message'] = '<span style="color: #059669; font-weight: bold;">Challenge Completed!</span><br>Points awarded: <strong>' . $result . '</strong> (Total: <strong>' . $newBalance . '</strong>)';
+            $_SESSION['points_awarded'] = $result;
+            
             self::redirectBack();
             exit;
+            
         } catch (Exception $e) {
-            $_SESSION['error_message'] = 'Error completing challenge: ' . $e->getMessage();
+            $_SESSION['error_message'] = 'Error: ' . $e->getMessage();
             self::redirectBack();
             exit;
         }
     }
-
+    
     private static function showLeaderboard($pdo) {
         try {
             require_once __DIR__ . '/../Models/Users.php';
@@ -565,6 +625,7 @@ class ChallengesController {
             }
         }
         
+        // FIXED: Removed the incorrect named parameter syntax
         header('Location: ' . $url);
         exit;
     }
@@ -572,3 +633,4 @@ class ChallengesController {
 
 ChallengesController::handle($pdo);
 ?>
+
