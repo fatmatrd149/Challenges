@@ -162,6 +162,20 @@ foreach ($allRewards as $reward) {
             font-size: 4rem;
             margin-bottom: 15px;
             line-height: 1;
+            animation: pulse 2s infinite;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
         }
         
         .redemptions-section {
@@ -246,12 +260,62 @@ foreach ($allRewards as $reward) {
             border-left: 5px solid #b91c1c;
         }
         
+        /* BLUE SECTION TITLES */
         .section-title {
-            color: #1f2937;
+            color: #1e40af; /* Changed from #1f2937 to blue */
             font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
             border-bottom: 3px solid #2563eb;
+        }
+        
+        /* Colorful section icons */
+        .section-title i {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding: 5px;
+            margin-right: 10px;
+            font-size: 1.2em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Specific colors for different section icons */
+        .section-title .fa-trophy {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .section-title .fa-lightbulb {
+            background: linear-gradient(135deg, #3b82f6, #60a5fa);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .section-title .fa-history {
+            background: linear-gradient(135deg, #059669, #10b981);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .section-title .fa-clock {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .section-title .fa-box {
+            background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .section-title .fa-gift {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            -webkit-background-clip: text;
+            background-clip: text;
         }
         
         .recommendation-title {
